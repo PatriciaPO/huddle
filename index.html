@@ -935,7 +935,11 @@ views.checkin = () => `
           <div style="font-size:12px;color:var(--muted-dark)">${f[1]} · ${icon('check')} présent</div></div>
           <span class="fi-time">${f[2]}</span>
         </div>`).join('')}
-      <div style="margin-top:20px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:8px"><span style="color:var(--muted-dark)">Taux de présence</span><b>72%</b></div><div class="bar"><i style="width:72%"></i></div></div>
+      <div class="checkin-stats" style="margin-top:20px;display:flex;gap:22px">
+        <div><div style="font-size:11px;color:var(--muted-dark)">Invités</div><div style="font-size:20px;font-weight:700">542</div></div>
+        <div><div style="font-size:11px;color:var(--muted-dark)">RSVP+</div><div style="font-size:20px;font-weight:700">342</div></div>
+        <div><div style="font-size:11px;color:var(--muted-dark)">Présence effective</div><div style="font-size:20px;font-weight:700;color:var(--acid)">248</div></div>
+      </div>
     </div>
   </div>
 </div>`;
