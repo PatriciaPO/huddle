@@ -220,6 +220,22 @@
   .pub-opt .po-desc{font-size:12.5px;color:var(--muted-dark);margin-top:6px}
   .pub-opt.sel .po-desc{color:var(--muted)}
 
+  /* drag-and-drop block builder (page web / e-mail / formulaire) */
+  .preview-page{border:1px solid #e7e6df;border-radius:12px;overflow:hidden;background:#fff}
+  .builder-device{display:flex;gap:8px}
+  .dev-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:600;color:var(--muted-dark);background:#eeede6}
+  .dev-btn svg{width:14px;height:14px;stroke-width:2}
+  .dev-btn.active{background:var(--ink);color:var(--paper)}
+  .builder-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start}
+  .builder-panel{background:#faf9f5;border:1px solid #eeede6;border-radius:var(--radius);padding:14px}
+  .builder-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #eeede6;cursor:grab}
+  .builder-row:last-child{border-bottom:none}
+  .builder-row:active{cursor:grabbing}
+  .builder-handle{color:var(--muted-dark);font-size:15px;line-height:1}
+  .builder-label{flex:1;font-size:12.5px;font-weight:600}
+  .builder-preview{overflow:auto}
+  .builder-frame.mobile .preview-page{width:375px;margin:0 auto;border-radius:26px;border:6px solid var(--ink)}
+
   /* reporting */
   .chart-bars{display:flex;align-items:flex-end;gap:14px;height:180px;padding-top:20px}
   .chart-bars .cb{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
@@ -319,19 +335,59 @@ const state = {
   eventType: 'Conférence',
   eventFormat: 'physique',   // 'physique' | 'distanciel' | 'hybride'
   eventMode: 'multi',        // 'simple' | 'multi'
+  eventInfo: {
+    name: 'Sommet Data & IA 2026',
+    date: '2026-03-18',
+    lieu: 'Station F — 5 Parvis Alan Turing, 75013 Paris',
+    description: 'Une journée dédiée aux décideurs data : retours d’expérience, ateliers pratiques et networking.',
+  },
   segmentBuilder: false,     // affiche l'écran de création de segment Dataverse
   segMemberType: 'Contact',
   pubMode: 'now',
   settingsTab: 'general',
+  builderOpen: null,         // null | 'page' | 'email' | 'form' — quel builder est ouvert
+  builderDevice: 'desktop',  // 'desktop' | 'mobile' — aperçu du builder
   sessions: [
     { name: 'Keynote d’ouverture', room: 'Grand Auditorium', quota: 300 },
     { name: 'Atelier — Data & IA', room: 'Salle Bleue', quota: 40 },
     { name: 'Table ronde partenaires', room: 'Salle Verte', quota: 60 },
   ],
+  speakers: [
+    { name: 'Camille Roy', role: 'CTO — NovaData', session: 'Keynote d’ouverture' },
+    { name: 'Yanis Berg', role: 'Head of AI — Fintrust', session: 'Atelier — Data & IA' },
+    { name: 'Sofia Meng', role: 'Directrice RH — Grupo', session: 'Table ronde partenaires' },
+  ],
   segments: [
     { name: 'Clients grands comptes', count: 420, color: '#CDFF3A' },
     { name: 'Prospects qualifiés', count: 610, color: '#8ecae6' },
     { name: 'Partenaires', count: 95, color: '#ffb703' },
+  ],
+  pageBlocks: [
+    { key:'hero',         label:'En-tête (nom, date, description)', on:true },
+    { key:'infos',        label:'Infos pratiques (lieu, places, sessions)', on:true },
+    { key:'programme',    label:'Programme', on:true },
+    { key:'intervenants', label:'Intervenants', on:true },
+    { key:'inscription',  label:'Formulaire d’inscription', on:true },
+    { key:'faq',          label:'FAQ', on:false },
+  ],
+  emailBlocks: [
+    { key:'header',      label:'En-tête Huddle', on:true },
+    { key:'title',       label:'Titre de l’événement', on:true },
+    { key:'description', label:'Description', on:true },
+    { key:'programme',   label:'Programme', on:false },
+    { key:'intervenants',label:'Intervenants', on:false },
+    { key:'lieu',        label:'Lieu & date', on:true },
+    { key:'cta',         label:'Bouton d’inscription', on:true },
+    { key:'footer',      label:'Pied de page', on:true },
+  ],
+  formBlocks: [
+    { key:'name',     label:'Nom complet', on:true },
+    { key:'email',    label:'E-mail', on:true },
+    { key:'company',  label:'Société', on:true },
+    { key:'role',     label:'Fonction', on:false },
+    { key:'sessions', label:'Choix de sessions', on:true },
+    { key:'phone',    label:'Téléphone', on:false },
+    { key:'message',  label:'Message libre', on:false },
   ],
 };
 
@@ -355,6 +411,7 @@ const I = {
   linkedin:'<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2zM4 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>',
   qr:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 18h3v3"/>',
   monitor:'<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  smartphone:'<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
   play:'<path d="M5 3l14 9-14 9V3z"/>',
   contact:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   lead:'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>',
@@ -635,7 +692,7 @@ const stepBody = {
   // info — Informations
   info: () => `
     <div class="row2">
-      <div class="field"><label>Nom de l’événement</label><input class="inp" value="Sommet Data & IA 2026"></div>
+      <div class="field"><label>Nom de l’événement</label><input class="inp" value="${state.eventInfo.name}" oninput="state.eventInfo.name=this.value;render()"></div>
       <div class="field"><label>Type d’événement</label>
         <div class="chip-pick">
           ${['Conférence','Salon','Petit-déjeuner','Table ronde','Partenaire'].map(t=>
@@ -644,7 +701,7 @@ const stepBody = {
       </div>
     </div>
     <div class="row3">
-      <div class="field"><label>Date de début</label><input class="inp" type="date" value="2026-03-18"></div>
+      <div class="field"><label>Date de début</label><input class="inp" type="date" value="${state.eventInfo.date}" oninput="state.eventInfo.date=this.value;render()"></div>
       <div class="field"><label>Heure de début</label><input class="inp" type="time" value="09:00"></div>
       <div class="field"><label>Fuseau</label><select class="sel"><option>Europe/Paris (CET)</option><option>UTC</option></select></div>
     </div>
@@ -653,9 +710,9 @@ const stepBody = {
       <div class="field"><label>Heure de fin</label><input class="inp" type="time" value="18:00"></div>
       <div class="field"></div>
     </div>
-    <div class="field"><label>Lieu <span class="hint">— présentiel ou lien de connexion</span></label><input class="inp" value="Station F — 5 Parvis Alan Turing, 75013 Paris"></div>
+    <div class="field"><label>Lieu <span class="hint">— présentiel ou lien de connexion</span></label><input class="inp" value="${state.eventInfo.lieu}" oninput="state.eventInfo.lieu=this.value;render()"></div>
     <div class="field"><label>Description <span class="hint">— visible sur la page web</span></label>
-      <textarea class="inp" rows="3">Une journée dédiée aux décideurs data : retours d’expérience, ateliers pratiques et networking.</textarea></div>`,
+      <textarea class="inp" rows="3" oninput="state.eventInfo.description=this.value;render()">${state.eventInfo.description}</textarea></div>`,
 
   program: () => `
     <div class="pub-choice" style="margin-bottom:6px">
@@ -697,18 +754,14 @@ const stepBody = {
 
   speakers: () => `
     ${protoNote('Les intervenants peuvent être rattachés à une ou plusieurs sessions du programme.')}
-    ${[
-      ['Camille Roy','CTO — NovaData','Keynote d’ouverture'],
-      ['Yanis Berg','Head of AI — Fintrust','Atelier — Data & IA'],
-      ['Sofia Meng','Directrice RH — Grupo','Table ronde partenaires'],
-    ].map(sp=>`
+    ${state.speakers.map((sp,i)=>`
       <div class="seg-card">
-        <div class="seg-name"><span class="mini-avatar">${sp[0].split(' ').map(x=>x[0]).join('')}</span>
-          <div><div>${sp[0]}</div><div style="font-size:12px;color:var(--muted-dark);font-weight:400">${sp[1]}</div></div>
+        <div class="seg-name"><span class="mini-avatar">${sp.name.split(' ').map(x=>x[0]).join('')}</span>
+          <div><div>${sp.name}</div><div style="font-size:12px;color:var(--muted-dark);font-weight:400">${sp.role}</div></div>
         </div>
         <div style="display:flex;align-items:center;gap:14px">
-          <span class="tag grey">${sp[2]}</span>
-          <button class="icon-btn">${icon('trash')}</button>
+          <span class="tag grey">${sp.session}</span>
+          <button class="icon-btn" onclick="state.speakers.splice(${i},1);render()">${icon('trash')}</button>
         </div>
       </div>`).join('')}
     <button class="add-line" onclick="alert('Prototype : ajout d’un intervenant')">${icon('plus')} Ajouter un intervenant</button>`,
@@ -725,7 +778,7 @@ const stepBody = {
       </div>`).join('')}
     <button class="add-line" onclick="state.segmentBuilder=true;render()">${icon('plus')} Créer un segment</button>`,
 
-  forms: () => `
+  forms: () => state.builderOpen==='form' ? formBuilderScreen() : `
     <div class="sec-title">Formulaires de l’événement</div>
     ${[
       ['Formulaire d’inscription','Nom, e-mail, société, fonction, choix de sessions',true],
@@ -735,29 +788,20 @@ const stepBody = {
         <div><div class="tr-title">${f[0]}</div><div class="tr-desc">${f[1]}</div></div>
         <label class="switch"><input type="checkbox" ${f[2]?'checked':''}><span class="slider"></span></label>
       </div>`).join('')}
-    <button class="add-line" style="margin-top:16px" onclick="alert('Prototype : nouveau formulaire personnalisé')">${icon('plus')} Créer un formulaire personnalisé</button>`,
-
-  web: () => `
-    ${protoNote('La page web reprend automatiquement la charte Huddle et les informations de l’événement.')}
-    <div style="border:1px solid #e7e6df;border-radius:12px;overflow:hidden">
-      <div style="background:var(--ink);color:var(--paper);padding:34px 30px">
-        <div style="font-size:11px;letter-spacing:.5px;color:var(--acid);font-weight:600;text-transform:uppercase">Conférence · 18 mars 2026</div>
-        <div style="font-size:26px;font-weight:700;letter-spacing:-.6px;margin-top:8px">Sommet Data &amp; IA 2026</div>
-        <div style="color:var(--muted);margin-top:8px;max-width:420px;font-size:13px">Une journée dédiée aux décideurs data : retours d’expérience, ateliers pratiques et networking.</div>
-        <button class="btn btn-acid" style="margin-top:18px">S’inscrire</button>
-      </div>
-      <div style="padding:20px 30px;display:flex;gap:26px;flex-wrap:wrap">
-        <div><div style="font-size:12px;color:var(--muted-dark)">Lieu</div><b style="font-size:13.5px">Station F, Paris</b></div>
-        <div><div style="font-size:12px;color:var(--muted-dark)">Places</div><b style="font-size:13.5px">400</b></div>
-        <div><div style="font-size:12px;color:var(--muted-dark)">Sessions</div><b style="font-size:13.5px">3</b></div>
-      </div>
-    </div>
-    <div style="display:flex;gap:12px;margin-top:18px">
-      <button class="btn btn-ghost" onclick="alert('Prototype : éditeur de page')">Personnaliser la page</button>
-      <button class="btn btn-ghost">Aperçu public</button>
+    <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+      <button class="add-line" onclick="state.builderOpen='form';render()">${icon('layers')} Personnaliser les champs</button>
+      <button class="add-line" onclick="alert('Prototype : nouveau formulaire personnalisé')">${icon('plus')} Créer un formulaire personnalisé</button>
     </div>`,
 
-  comms: () => `
+  web: () => state.builderOpen==='page' ? pageBuilderScreen() : `
+    ${protoNote('Cette page est générée automatiquement à partir des informations, du programme et des intervenants déjà renseignés dans le wizard. Personnalisez-la pour choisir et réorganiser ses sections.')}
+    ${pagePreview(state.pageBlocks.filter(b=>b.on))}
+    <div style="display:flex;gap:12px;margin-top:18px">
+      <button class="btn btn-ghost" onclick="state.builderOpen='page';render()">${icon('layers')} Personnaliser la page</button>
+      <button class="btn btn-ghost" onclick="alert('Prototype : aperçu public de la page')">Aperçu public</button>
+    </div>`,
+
+  comms: () => state.builderOpen==='email' ? emailBuilderScreen() : `
     ${protoNote('Construisez le parcours de communication. Chaque message se déclenche à un moment clé du cycle de l’invité.')}
     <div class="flow-line">
       ${[
@@ -773,7 +817,10 @@ const stepBody = {
         </div>
         ${i<arr.length-1?`<div class="flow-arrow">${icon('arrowRight')}</div>`:''}`).join('')}
     </div>
-    <button class="add-line" style="margin-top:20px;max-width:280px" onclick="alert('Prototype : ajout d’une étape de communication')">${icon('plus')} Ajouter un message</button>`,
+    <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap">
+      <button class="add-line" style="max-width:280px" onclick="alert('Prototype : ajout d’une étape de communication')">${icon('plus')} Ajouter un message</button>
+      <button class="add-line" style="max-width:280px" onclick="state.builderOpen='email';render()">${icon('layers')} Personnaliser le modèle d’e-mail</button>
+    </div>`,
 
   quotas: () => `
     <div class="field"><label>Capacité globale de l’événement</label>
@@ -826,6 +873,140 @@ const stepBody = {
       <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
     </div>`,
 };
+
+/* ---------- date helper (avoids re-typing the French long date format everywhere) ---------- */
+function fmtDate(iso){
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+}
+
+/* ============================================================
+   Drag-and-drop block builder — shared by the page/e-mail/form builders.
+   Each builder is just: an array of {key,label,on} blocks in state,
+   a preview renderer keyed by block.key, reordered by native HTML5 drag&drop.
+   ============================================================ */
+let builderDragIndex = null;
+function builderDragStart(i){ builderDragIndex = i; }
+function builderDrop(i, blocksKey){
+  if(builderDragIndex===null || builderDragIndex===i) return;
+  const arr = state[blocksKey];
+  const [moved] = arr.splice(builderDragIndex,1);
+  arr.splice(i,0,moved);
+  builderDragIndex = null;
+  render();
+}
+
+function builderShell(blocksKey, previewFn){
+  const blocks = state[blocksKey];
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+    <button class="btn btn-ghost" onclick="state.builderOpen=null;render()">${icon('arrowLeft')} Retour</button>
+    <div class="builder-device">
+      <button class="dev-btn ${state.builderDevice==='desktop'?'active':''}" onclick="state.builderDevice='desktop';render()">${icon('monitor')} Desktop</button>
+      <button class="dev-btn ${state.builderDevice==='mobile'?'active':''}" onclick="state.builderDevice='mobile';render()">${icon('smartphone')} Mobile</button>
+    </div>
+  </div>
+  <div class="builder-layout">
+    <div class="builder-panel">
+      <div class="sec-title" style="margin-bottom:2px">Sections</div>
+      <div class="tr-desc" style="margin-bottom:10px">Glissez pour réordonner, activez pour afficher.</div>
+      ${blocks.map((b,i)=>`
+        <div class="builder-row" draggable="true" ondragstart="builderDragStart(${i})" ondragover="event.preventDefault()" ondrop="builderDrop(${i},'${blocksKey}')">
+          <span class="builder-handle">⠿</span>
+          <span class="builder-label">${b.label}</span>
+          <label class="switch"><input type="checkbox" ${b.on?'checked':''} onchange="state.${blocksKey}[${i}].on=this.checked;render()"><span class="slider"></span></label>
+        </div>`).join('')}
+    </div>
+    <div class="builder-preview">
+      <div class="builder-frame ${state.builderDevice}">${previewFn(blocks.filter(b=>b.on))}</div>
+    </div>
+  </div>`;
+}
+
+/* ---- page builder (used by the wizard's "Page web" step) ---- */
+function pagePreview(blocks){
+  const totalQuota = state.sessions.reduce((a,s)=>a+ +s.quota,0);
+  const renderers = {
+    hero: () => `
+      <div style="background:var(--ink);color:var(--paper);padding:34px 30px">
+        <div style="font-size:11px;letter-spacing:.5px;color:var(--acid);font-weight:600;text-transform:uppercase">${state.eventType} · ${fmtDate(state.eventInfo.date)}</div>
+        <div style="font-size:26px;font-weight:700;letter-spacing:-.6px;margin-top:8px">${state.eventInfo.name}</div>
+        <div style="color:var(--muted);margin-top:8px;max-width:420px;font-size:13px">${state.eventInfo.description}</div>
+        <button class="btn btn-acid" style="margin-top:18px">S’inscrire</button>
+      </div>`,
+    infos: () => `
+      <div style="padding:20px 30px;display:flex;gap:26px;flex-wrap:wrap">
+        <div><div style="font-size:12px;color:var(--muted-dark)">Lieu</div><b style="font-size:13.5px">${state.eventInfo.lieu}</b></div>
+        <div><div style="font-size:12px;color:var(--muted-dark)">Places</div><b style="font-size:13.5px">${totalQuota}</b></div>
+        <div><div style="font-size:12px;color:var(--muted-dark)">Sessions</div><b style="font-size:13.5px">${state.sessions.length}</b></div>
+      </div>`,
+    programme: () => `
+      <div style="padding:4px 30px 22px">
+        <div class="sec-title">Programme</div>
+        ${state.sessions.map(s=>`
+          <div class="session-row" style="grid-template-columns:1fr auto">
+            <div><div class="s-name">${s.name}</div><div class="s-sub">${icon('mapPin')} ${s.room}</div></div>
+            <div style="font-size:12px;color:var(--muted-dark)">${s.quota} places</div>
+          </div>`).join('')}
+      </div>`,
+    intervenants: () => `
+      <div style="padding:4px 30px 22px">
+        <div class="sec-title">Intervenants</div>
+        ${state.speakers.map(sp=>`
+          <div class="seg-card">
+            <div class="seg-name"><span class="mini-avatar">${sp.name.split(' ').map(x=>x[0]).join('')}</span>
+              <div><div>${sp.name}</div><div style="font-size:12px;color:var(--muted-dark);font-weight:400">${sp.role}</div></div>
+            </div>
+            <span class="tag grey">${sp.session}</span>
+          </div>`).join('')}
+      </div>`,
+    inscription: () => `
+      <div style="padding:4px 30px 26px">
+        <div class="sec-title">Inscription</div>
+        <div class="field"><label>Nom complet</label><input class="inp" disabled placeholder="Jeanne Dupont"></div>
+        <div class="field" style="margin-top:10px"><label>E-mail professionnel</label><input class="inp" disabled placeholder="jeanne.dupont@entreprise.com"></div>
+        <button class="btn btn-acid" style="margin-top:14px">S’inscrire</button>
+      </div>`,
+    faq: () => `
+      <div style="padding:4px 30px 26px">
+        <div class="sec-title">FAQ</div>
+        <div class="s-sub">Questions fréquentes sur l’accès, le parking et l’accueil.</div>
+      </div>`,
+  };
+  return `<div class="preview-page">${blocks.map(b=>renderers[b.key]?renderers[b.key]():'').join('')}</div>`;
+}
+function pageBuilderScreen(){ return builderShell('pageBlocks', pagePreview); }
+
+/* ---- e-mail builder (used by the wizard's "Communications" step) ---- */
+function emailPreview(blocks){
+  const renderers = {
+    header: () => `<div style="padding:18px 24px;border-bottom:1px solid #eeede6">${logoMark('ph-logo')}</div>`,
+    title: () => `<div style="padding:22px 24px 4px;font-size:19px;font-weight:700">${state.eventInfo.name}</div>`,
+    description: () => `<div style="padding:6px 24px 0;font-size:13px;color:var(--muted-dark)">${state.eventInfo.description}</div>`,
+    programme: () => `<div style="padding:16px 24px 0"><div class="sec-title" style="margin-bottom:8px">Programme</div>${state.sessions.map(s=>`<div class="s-sub" style="margin-bottom:4px">• ${s.name} — ${s.room}</div>`).join('')}</div>`,
+    intervenants: () => `<div style="padding:16px 24px 0"><div class="sec-title" style="margin-bottom:8px">Intervenants</div>${state.speakers.map(sp=>`<div class="s-sub" style="margin-bottom:4px">• ${sp.name} — ${sp.role}</div>`).join('')}</div>`,
+    lieu: () => `<div style="padding:16px 24px 0;font-size:13px;color:var(--muted-dark)">${icon('mapPin')} ${state.eventInfo.lieu} · ${fmtDate(state.eventInfo.date)}</div>`,
+    cta: () => `<div style="padding:22px 24px"><button class="btn btn-acid">S’inscrire</button></div>`,
+    footer: () => `<div style="padding:16px 24px;border-top:1px solid #eeede6;font-size:11px;color:var(--muted-dark)">Huddle · Vous recevez cet e-mail suite à votre inscription.</div>`,
+  };
+  return `<div class="preview-page">${blocks.map(b=>renderers[b.key]?renderers[b.key]():'').join('')}</div>`;
+}
+function emailBuilderScreen(){ return builderShell('emailBlocks', emailPreview); }
+
+/* ---- form builder (used by the wizard's "Formulaires" step) ---- */
+function formPreview(blocks){
+  const renderers = {
+    name:     () => `<div class="field"><label>Nom complet</label><input class="inp" disabled placeholder="Jeanne Dupont"></div>`,
+    email:    () => `<div class="field"><label>E-mail</label><input class="inp" disabled placeholder="jeanne.dupont@entreprise.com"></div>`,
+    company:  () => `<div class="field"><label>Société</label><input class="inp" disabled placeholder="Acme Corp"></div>`,
+    role:     () => `<div class="field"><label>Fonction</label><input class="inp" disabled placeholder="Directrice Marketing"></div>`,
+    sessions: () => `<div class="field"><label>Choix de sessions</label><select class="sel" disabled><option>${state.sessions.map(s=>s.name).join(', ')}</option></select></div>`,
+    phone:    () => `<div class="field"><label>Téléphone</label><input class="inp" disabled placeholder="+33 6 00 00 00 00"></div>`,
+    message:  () => `<div class="field"><label>Message libre</label><textarea class="inp" disabled rows="2"></textarea></div>`,
+  };
+  return `<div class="preview-page" style="padding:26px 30px">${blocks.map(b=>renderers[b.key]?`<div style="margin-bottom:14px">${renderers[b.key]()}</div>`:'').join('')}<button class="btn btn-acid" style="margin-top:6px" disabled>Envoyer</button></div>`;
+}
+function formBuilderScreen(){ return builderShell('formBlocks', formPreview); }
 
 views.create = () => {
   const steps = wizardSteps();
@@ -893,6 +1074,7 @@ views.guests = () => `
   </div>
 </div>`;
 
+/* =================== CHECK-IN (tab "Jour J" de l'espace événement) =================== */
 /* =================== CHECK-IN =================== */
 views.checkin = () => `
 <div class="page">
