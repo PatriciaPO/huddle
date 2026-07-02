@@ -22,6 +22,7 @@
     --font-body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
+  svg{width:16px;height:16px;stroke-width:1.8}
   html,body{height:100%}
   body{
     font-family:var(--font-body);
@@ -140,17 +141,30 @@
   .ev-fill{font-size:12px;color:var(--muted-dark)}
 
   /* ===== Wizard ===== */
-  .wizard{display:grid;grid-template-columns:250px 1fr;gap:26px;align-items:start}
-  .steps{display:flex;flex-direction:column;gap:3px;position:sticky;top:22px}
-  .step{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:var(--radius-sm);transition:.12s;text-align:left;width:100%;color:var(--muted-dark)}
-  .step:hover{background:#fff}
-  .step .step-num{width:24px;height:24px;flex:0 0 24px;border-radius:50%;border:1.5px solid #d3d2cb;display:grid;place-items:center;font-size:11.5px;font-weight:700;color:var(--muted-dark)}
-  .step .step-name{font-size:13px;font-weight:500}
-  .step.active{background:var(--ink);color:var(--paper)}
-  .step.active .step-num{border-color:var(--acid);background:var(--acid);color:var(--ink)}
-  .step.active .step-name{font-weight:600}
-  .step.done .step-num{background:#e4f7d9;border-color:#e4f7d9;color:#3a7d24}
-  .step.done .step-name{color:var(--ink)}
+  .wizard{display:grid;grid-template-columns:270px 1fr;gap:26px;align-items:start}
+  .phases{display:flex;flex-direction:column;gap:10px;position:sticky;top:22px}
+  .phase-card{background:#fff;border:1.5px solid #e7e6df;border-radius:var(--radius-sm);overflow:hidden;transition:.12s}
+  .phase-head{display:flex;align-items:center;gap:12px;width:100%;padding:14px;text-align:left}
+  .phase-icon{width:40px;height:40px;flex:0 0 40px;border-radius:10px;background:#eeede6;color:var(--muted-dark);display:grid;place-items:center;transition:.12s}
+  .phase-icon svg{width:19px;height:19px;stroke-width:1.7}
+  .phase-info{flex:1;min-width:0}
+  .phase-title{font-size:13px;font-weight:700;color:var(--muted-dark)}
+  .phase-count{font-size:11px;color:var(--muted-dark);margin-top:2px}
+  .phase-bar{height:4px;border-radius:2px;background:#eeede6;margin-top:8px;overflow:hidden}
+  .phase-bar i{display:block;height:100%;background:var(--muted-dark);border-radius:2px}
+  .phase-card.active{border-color:var(--ink)}
+  .phase-card.active .phase-icon{background:var(--ink);color:var(--acid)}
+  .phase-card.active .phase-title{color:var(--ink)}
+  .phase-card.active .phase-bar i{background:var(--acid)}
+  .phase-steps{border-top:1px solid #eeede6;padding:6px 8px 8px;display:flex;flex-direction:column;gap:2px}
+  .phase-step{display:flex;align-items:center;gap:10px;width:100%;padding:8px 9px;border-radius:7px;font-size:12.5px;font-weight:500;color:var(--muted-dark);text-align:left}
+  .phase-step:hover{background:#faf9f5}
+  .phase-step.current{background:var(--ink);color:var(--paper);font-weight:600}
+  .phase-step.done{color:var(--ink)}
+  .ps-dot{width:16px;height:16px;flex:0 0 16px;border-radius:50%;border:1.5px solid #d3d2cb;display:grid;place-items:center}
+  .ps-dot svg{width:10px;height:10px;stroke-width:3}
+  .phase-step.current .ps-dot{background:var(--acid);border-color:var(--acid)}
+  .phase-step.done .ps-dot{background:#e4f7d9;border-color:#e4f7d9;color:#3a7d24}
   .wizard-panel{background:#fff;border:1px solid #e7e6df;border-radius:var(--radius);padding:30px 32px;min-height:440px;display:flex;flex-direction:column}
   .wizard-panel .wp-eyebrow{font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:var(--acid);font-weight:700;filter:brightness(.7)}
   .wizard-panel .wp-title{font-size:22px;font-weight:700;letter-spacing:-.5px;margin-top:6px}
@@ -178,8 +192,10 @@
   .session-row .s-sub{font-size:12px;color:var(--muted-dark);margin-top:2px}
   .icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted-dark);transition:.12s}
   .icon-btn:hover{background:#eeede6;color:var(--danger)}
+  .icon-btn svg{width:16px;height:16px;stroke-width:1.8}
   .add-line{display:flex;align-items:center;gap:9px;padding:12px;border:1.5px dashed #d3d2cb;border-radius:var(--radius-sm);color:var(--muted-dark);font-size:13px;font-weight:600;width:100%;justify-content:center;transition:.12s}
   .add-line:hover{border-color:var(--ink);color:var(--ink);background:#faf9f5}
+  .add-line svg{width:15px;height:15px;flex:0 0 15px;stroke-width:2}
 
   /* comms flow */
   .flow-line{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
@@ -188,6 +204,7 @@
   .flow-node .fn-title{font-size:13.5px;font-weight:600;margin-top:4px}
   .flow-node .fn-when{font-size:12px;color:var(--muted-dark);margin-top:6px}
   .flow-arrow{align-self:center;padding:0 6px;color:#c9c8c1}
+  .flow-arrow svg{width:18px;height:18px;stroke-width:1.8}
 
   /* toggle switch */
   .switch{position:relative;width:40px;height:23px;flex:0 0 40px}
@@ -215,6 +232,7 @@
   .pub-opt:hover{border-color:var(--ink)}
   .pub-opt.sel{border-color:var(--ink);background:var(--ink);color:var(--paper)}
   .pub-opt .po-icon{width:38px;height:38px;border-radius:10px;background:#eeede6;display:grid;place-items:center;margin-bottom:14px}
+  .pub-opt .po-icon svg{width:20px;height:20px;stroke-width:1.6}
   .pub-opt.sel .po-icon{background:var(--acid);color:var(--ink)}
   .pub-opt .po-title{font-size:15px;font-weight:700}
   .pub-opt .po-desc{font-size:12.5px;color:var(--muted-dark);margin-top:6px}
@@ -255,6 +273,7 @@
   .phone .screen{background:#161616;border-radius:22px;overflow:hidden;height:500px;position:relative;display:flex;flex-direction:column}
   .phone .ph-top{padding:18px 18px 14px;color:var(--paper)}
   .phone .ph-scan{flex:1;margin:0 18px;border:2px solid var(--acid);border-radius:16px;position:relative;background:#0c0c0c;overflow:hidden}
+  .phone .ph-scan svg{width:56px;height:56px;stroke-width:1.2}
   .scanline{position:absolute;left:0;right:0;height:2px;background:var(--acid);box-shadow:0 0 12px var(--acid);animation:scan 2.4s ease-in-out infinite}
   @keyframes scan{0%,100%{top:12%}50%{top:88%}}
   .phone .ph-corner{position:absolute;width:26px;height:26px;border:3px solid var(--acid)}
@@ -268,6 +287,7 @@
   .checkin-feed{flex:1;min-width:300px}
   .feed-item{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid #eeede6}
   .feed-item .fi-time{font-size:11.5px;color:var(--muted-dark);margin-left:auto}
+  .fi-check{width:12px;height:12px;flex:0 0 12px;stroke-width:2.5;vertical-align:-1px;color:var(--acid-dark, #6b8f00)}
 
   /* settings */
   .settings-nav{display:flex;gap:8px;border-bottom:1px solid #e7e6df;margin-bottom:24px}
@@ -314,8 +334,7 @@
   @media(max-width:920px){
     .kpi-grid{grid-template-columns:repeat(2,1fr)}
     .wizard{grid-template-columns:1fr}
-    .steps{flex-direction:row;overflow-x:auto;position:static}
-    .step{flex:0 0 auto}
+    .phases{position:static}
     .row2,.row3{grid-template-columns:1fr}
   }
 </style>
@@ -332,6 +351,7 @@ const state = {
   route: 'dashboard',        // active sidebar route
   wizardStep: 0,             // create-event wizard
   wizardMax: 0,              // furthest step reached (for "done" marks)
+  wizardOpenPhase: null,     // phase card manually expanded; null = follow active phase
   eventType: 'Conférence',
   eventFormat: 'physique',   // 'physique' | 'distanciel' | 'hybride'
   eventMode: 'multi',        // 'simple' | 'multi'
@@ -419,6 +439,7 @@ const I = {
   layers:'<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>',
   table:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
   filter:'<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
+  rocket:'<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 19 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
 };
 const icon = (name, cls='') =>
   `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${I[name]||''}</svg>`;
@@ -621,13 +642,13 @@ views.events = () => `
 const ALL_STEPS = [
   { key:'format',  label:'Format' },
   { key:'info',    label:'Informations' },
-  { key:'program', label:'Programme & sessions' },
-  { key:'speakers',label:'Intervenants', simpleHidden:true },
   { key:'segment', label:'Segmentation' },
+  { key:'program', label:'Programme & sessions' },
+  { key:'quotas',  label:'Quotas', simpleHidden:true },
+  { key:'speakers',label:'Intervenants', simpleHidden:true },
   { key:'forms',   label:'Formulaires' },
   { key:'web',     label:'Page web' },
   { key:'comms',   label:'Communications' },
-  { key:'quotas',  label:'Quotas', simpleHidden:true },
   { key:'survey',  label:'Enquête' },
   { key:'publish', label:'Publication' },
 ];
@@ -636,21 +657,55 @@ function wizardSteps(){
   return ALL_STEPS.filter(s => !(state.eventMode==='simple' && s.simpleHidden));
 }
 
+/* Steps grouped into 3 collapsible phase cards for the sidebar nav */
+const PHASES = [
+  { key:'setup',      label:'Je configure',                    icon:'settings', steps:['format','info','program','speakers','segment','quotas'] },
+  { key:'experience', label:'Je construis l’expérience invité', icon:'grid',     steps:['forms','web','comms'] },
+  { key:'launch',     label:'Je diffuse et je mesure',          icon:'rocket',   steps:['publish','survey'] },
+];
+
 function wizGo(i){
   const steps = wizardSteps();
   state.wizardStep = Math.max(0, Math.min(steps.length-1, i));
   state.wizardMax = Math.max(state.wizardMax, state.wizardStep);
+  state.wizardOpenPhase = null;
   render();
   const m=document.querySelector('.main'); if(m)m.scrollTo(0,0);
 }
 
-function stepSidebar(){
+function togglePhase(key){
+  state.wizardOpenPhase = key;
+  render();
+}
+
+function phaseSidebar(){
   const steps = wizardSteps();
-  return `<div class="steps">${steps.map((s,i)=>{
-    const cls = i===state.wizardStep?'active':(i<state.wizardMax?'done':'');
-    return `<button class="step ${cls}" onclick="wizGo(${i})">
-      <span class="step-num">${cls==='done'?icon('check'):(i+1)}</span>
-      <span class="step-name">${s.label}</span></button>`;
+  const current = steps[state.wizardStep] || steps[0];
+  const activeKey = (PHASES.find(p=>p.steps.includes(current.key)) || PHASES[0]).key;
+  const openKey = state.wizardOpenPhase || activeKey;
+  return `<div class="phases">${PHASES.map(p=>{
+    const pSteps = steps.map((s,i)=>({...s,i})).filter(s=>p.steps.includes(s.key));
+    if(!pSteps.length) return '';
+    const done = pSteps.filter(s=>s.i<state.wizardMax).length;
+    const isActive = p.key===activeKey;
+    const isOpen = p.key===openKey;
+    return `
+    <div class="phase-card ${isActive?'active':''}">
+      <button class="phase-head" onclick="togglePhase('${p.key}')">
+        <span class="phase-icon">${icon(p.icon)}</span>
+        <div class="phase-info">
+          <div class="phase-title">${p.label}</div>
+          <div class="phase-count">${done} sur ${pSteps.length} étapes</div>
+          <div class="phase-bar"><i style="width:${Math.round(done/pSteps.length*100)}%"></i></div>
+        </div>
+      </button>
+      ${isOpen?`<div class="phase-steps">${pSteps.map(s=>{
+        const cls = s.i===state.wizardStep?'current':(s.i<state.wizardMax?'done':'');
+        return `<button class="phase-step ${cls}" onclick="wizGo(${s.i})">
+          <span class="ps-dot">${cls==='done'?icon('check'):''}</span>
+          <span>${s.label}</span></button>`;
+      }).join('')}</div>`:''}
+    </div>`;
   }).join('')}</div>`;
 }
 
@@ -1021,7 +1076,7 @@ views.create = () => {
     <button class="btn btn-ghost" onclick="go('events')">Enregistrer le brouillon</button>
   </div>
   <div class="wizard">
-    ${stepSidebar()}
+    ${phaseSidebar()}
     <div class="wizard-panel">
       <div>
         <div class="wp-eyebrow">Étape ${state.wizardStep+1} / ${steps.length}</div>
@@ -1114,7 +1169,7 @@ views.checkin = () => `
         <div class="feed-item">
           <span class="mini-avatar">${f[0].split(' ').map(x=>x[0]).join('')}</span>
           <div><div style="font-weight:600;font-size:13px">${f[0]}</div>
-          <div style="font-size:12px;color:var(--muted-dark)">${f[1]} · ${icon('check')} présent</div></div>
+          <div style="font-size:12px;color:var(--muted-dark)">${f[1]} · ${icon('check','fi-check')} présent</div></div>
           <span class="fi-time">${f[2]}</span>
         </div>`).join('')}
       <div class="checkin-stats" style="margin-top:20px;display:flex;gap:22px">
