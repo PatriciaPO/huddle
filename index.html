@@ -165,8 +165,17 @@
   .ps-dot svg{width:10px;height:10px;stroke-width:3}
   .phase-step.current .ps-dot{background:var(--acid);border-color:var(--acid)}
   .phase-step.done .ps-dot{background:#e4f7d9;border-color:#e4f7d9;color:#3a7d24}
-  .phase-step-sub{padding-left:27px}
-  .phase-step-sub .ps-dot{width:6px;height:6px;flex:0 0 6px;border-radius:50%}
+
+  /* mini-parcours interne de l'étape "Programme" */
+  .prog-stepper{display:flex;align-items:center;flex-wrap:wrap;row-gap:10px;padding-bottom:18px;border-bottom:1px solid #eeede6}
+  .prog-stepper-item{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .prog-stepper-dot{width:24px;height:24px;border-radius:50%;background:#eeede6;color:var(--muted-dark);display:grid;place-items:center;font-size:11.5px;font-weight:700;flex:0 0 24px}
+  .prog-stepper-dot svg{width:12px;height:12px;stroke-width:3}
+  .prog-stepper-item.current .prog-stepper-dot{background:var(--ink);color:var(--paper)}
+  .prog-stepper-item.done .prog-stepper-dot{background:var(--acid);color:var(--ink)}
+  .prog-stepper-label{font-size:12.5px;font-weight:600;color:var(--muted-dark);white-space:nowrap}
+  .prog-stepper-item.current .prog-stepper-label{color:var(--ink)}
+  .prog-stepper-line{flex:1 1 24px;height:2px;background:#eeede6;margin:0 10px;min-width:16px}
   .wizard-panel{background:#fff;border:1px solid #e7e6df;border-radius:var(--radius);padding:30px 32px;min-height:440px;display:flex;flex-direction:column}
   .wizard-panel .wp-title{font-size:22px;font-weight:700;letter-spacing:-.5px}
   .wizard-panel .wp-desc{color:var(--muted-dark);font-size:13.5px;margin-top:6px;max-width:560px}
@@ -373,6 +382,7 @@ const state = {
   hasProgram: false,
   programType: null,        // 'odj' | 'multi'
   useGroups: false,
+  progSubStep: 0,           // position dans le mini-parcours interne de l'étape "Programme" (voir progSubSteps())
   quotaEnabled: false,      // facultatif, ne s'applique qu'aux cas A/B (obligatoire et toujours vrai en C/D)
   waitlistEnabled: false,   // ne se pose que si un quota est actif
   hasSpeakers: false,
@@ -676,10 +686,7 @@ const ALL_STEPS = [
   { key:'format',  label:'Format' },
   { key:'info',    label:'Informations' },
   { key:'segment', label:'Segmentation' },
-  { key:'prog-has',        label:'Programme' },
-  { key:'prog-type',       label:'Type de programme',    hidden:() => !state.hasProgram },
-  { key:'prog-groups',     label:'Groupe de sessions ?', hidden:() => !(state.hasProgram && state.programType==='multi') },
-  { key:'prog-content',    label:'Programme & sessions' },
+  { key:'program',         label:'Programme' },
   { key:'quota-toggle',    label:'Quota ?',              hidden:() => !isCaseAB() },
   { key:'quota-content',   label:'Quotas',               hidden:() => !quotaActive() },
   { key:'waitlist',        label:'Liste d’attente',      hidden:() => !quotaActive() },
@@ -722,6 +729,43 @@ function isCaseAB(){ const c = programCase(); return c==='A' || c==='B'; }
 function quotaActive(){
   const c = programCase();
   return (c==='C' || c==='D') ? true : !!state.quotaEnabled;
+}
+
+/* ---------- L'étape "Programme" du wizard est UNE seule étape côté sidebar,
+   mais elle contient en interne un mini-parcours pas-à-pas (l'arbre de
+   décision A/B/C/D), visualisé par une ligne de progression dans le panneau.
+   progSubSteps() calcule dynamiquement la liste des écrans pertinents selon
+   les réponses déjà données ; choisir une carte avance automatiquement au
+   suivant (voir progSubGo()). ---------- */
+function progSubSteps(){
+  const steps = ['prog-has'];
+  if (state.hasProgram) {
+    steps.push('prog-type');
+    if (state.programType === 'multi') steps.push('prog-groups');
+  }
+  steps.push('prog-content');
+  return steps;
+}
+const PROG_SUB_LABELS = { 'prog-has':'Programme', 'prog-type':'Type', 'prog-groups':'Groupes', 'prog-content':'Détails' };
+
+function progSubGo(i){
+  const steps = progSubSteps();
+  state.progSubStep = Math.max(0, Math.min(steps.length-1, i));
+  render();
+  const m=document.querySelector('.main'); if(m)m.scrollTo(0,0);
+}
+
+function progProgressBar(){
+  const steps = progSubSteps();
+  const idx = Math.min(state.progSubStep, steps.length-1);
+  return `<div class="prog-stepper">
+    ${steps.map((k,i)=>`
+      <div class="prog-stepper-item ${i===idx?'current':(i<idx?'done':'')}">
+        <span class="prog-stepper-dot">${i<idx?icon('check'):i+1}</span>
+        <span class="prog-stepper-label">${PROG_SUB_LABELS[k]}</span>
+      </div>
+      ${i<steps.length-1?'<span class="prog-stepper-line"></span>':''}`).join('')}
+  </div>`;
 }
 
 /* regroupe state.sessions par parcours, en conservant l'index réel dans state.sessions
@@ -895,21 +939,22 @@ function waitlistLandingPreview(){
   </div>`;
 }
 
-/* Sous-étapes affichées en retrait sous leur étape parente dans la sidebar
-   (purement visuel : la navigation et la numérotation restent inchangées). */
-const STEP_GROUPS = {
-  'prog-has': ['prog-type', 'prog-groups', 'prog-content'],
-};
-
 /* Steps grouped into 3 collapsible phase cards for the sidebar nav */
 const PHASES = [
-  { key:'setup',      label:'Je configure',                    icon:'settings', steps:['format','info','segment','prog-has','prog-type','prog-groups','prog-content','quota-toggle','quota-content','waitlist','speakers-toggle','speakers-content'] },
+  { key:'setup',      label:'Je configure',                    icon:'settings', steps:['format','info','segment','program','quota-toggle','quota-content','waitlist','speakers-toggle','speakers-content'] },
   { key:'experience', label:'Je construis l’expérience invité', icon:'grid',     steps:['forms','web','comms'] },
   { key:'launch',     label:'Je diffuse et je mesure',          icon:'rocket',   steps:['publish','survey'] },
 ];
 
+/* En entrant dans l'étape "Programme" en avançant, on repart du début de son
+   mini-parcours interne ; en y revenant en arrière, on retombe sur son dernier
+   écran (le contenu déjà saisi), pas sur la première question. */
 function wizGo(i){
   const steps = wizardSteps();
+  const target = steps[Math.max(0, Math.min(steps.length-1, i))];
+  if (target && target.key === 'program' && i !== state.wizardStep) {
+    state.progSubStep = (i > state.wizardStep) ? 0 : progSubSteps().length-1;
+  }
   state.wizardStep = Math.max(0, Math.min(steps.length-1, i));
   state.wizardMax = Math.max(state.wizardMax, state.wizardStep);
   state.wizardOpenPhase = null;
@@ -943,19 +988,12 @@ function phaseSidebar(){
           <div class="phase-bar"><i style="width:${Math.round(done/pSteps.length*100)}%"></i></div>
         </div>
       </button>
-      ${isOpen?`<div class="phase-steps">${(() => {
-        const childKeys = new Set(Object.values(STEP_GROUPS).flat());
-        const stepBtn = (s, sub) => {
-          const cls = s.i===state.wizardStep?'current':(s.i<state.wizardMax?'done':'');
-          return `<button class="phase-step ${sub?'phase-step-sub':''} ${cls}" onclick="wizGo(${s.i})">
-            <span class="ps-dot">${cls==='done'?icon('check'):''}</span>
-            <span>${s.label}</span></button>`;
-        };
-        return pSteps.filter(s=>!childKeys.has(s.key)).map(s=>{
-          const children = (STEP_GROUPS[s.key]||[]).map(k=>pSteps.find(ps=>ps.key===k)).filter(Boolean);
-          return stepBtn(s,false) + children.map(c=>stepBtn(c,true)).join('');
-        }).join('');
-      })()}</div>`:''}
+      ${isOpen?`<div class="phase-steps">${pSteps.map(s=>{
+        const cls = s.i===state.wizardStep?'current':(s.i<state.wizardMax?'done':'');
+        return `<button class="phase-step ${cls}" onclick="wizGo(${s.i})">
+          <span class="ps-dot">${cls==='done'?icon('check'):''}</span>
+          <span>${s.label}</span></button>`;
+      }).join('')}</div>`:''}
     </div>`;
   }).join('')}</div>`;
 }
@@ -964,12 +1002,25 @@ function wizFoot(){
   const steps = wizardSteps();
   const first = state.wizardStep===0;
   const last = state.wizardStep===steps.length-1;
+
+  // Tant qu'on est dans le mini-parcours interne de l'étape "Programme",
+  // Précédent/Continuer naviguent d'abord dedans (voir progSubGo()) et ne
+  // passent à l'étape wizard suivante/précédente qu'une fois à ses bornes.
+  const inProgram = steps[state.wizardStep] && steps[state.wizardStep].key === 'program';
+  const subLen = inProgram ? progSubSteps().length : 0;
+  const atSubStart = inProgram && state.progSubStep === 0;
+  const atSubEnd = inProgram && state.progSubStep === subLen-1;
+  const prevAction = (inProgram && !atSubStart) ? `progSubGo(${state.progSubStep-1})` : `wizGo(${state.wizardStep-1})`;
+  const nextAction = (inProgram && !atSubEnd) ? `progSubGo(${state.progSubStep+1})` : `wizGo(${state.wizardStep+1})`;
+  const isFirstScreen = first && (!inProgram || atSubStart);
+  const isLastScreen = last && (!inProgram || atSubEnd);
+
   return `<div class="wp-foot">
-    <button class="btn btn-ghost ${first?'hidden':''}" onclick="wizGo(${state.wizardStep-1})">${icon('arrowLeft')} Précédent</button>
-    ${first?'<span></span>':''}
-    ${last
+    <button class="btn btn-ghost ${isFirstScreen?'hidden':''}" onclick="${prevAction}">${icon('arrowLeft')} Précédent</button>
+    ${isFirstScreen?'<span></span>':''}
+    ${isLastScreen
       ? `<button class="btn btn-acid" onclick="alert('Prototype : événement publié 🎉')">${icon('send')} Publier l’événement</button>`
-      : `<button class="btn btn-primary" onclick="wizGo(${state.wizardStep+1})">Continuer ${icon('arrowRight')}</button>`}
+      : `<button class="btn btn-primary" onclick="${nextAction}">Continuer ${icon('arrowRight')}</button>`}
   </div>`;
 }
 
@@ -1020,54 +1071,57 @@ const stepBody = {
     <div class="field"><label>Description <span class="hint">— visible sur la page web</span></label>
       <textarea class="inp" rows="3" oninput="state.eventInfo.description=this.value;render()">${state.eventInfo.description}</textarea></div>`,
 
-  'prog-has': () => `
-    <div class="pub-choice">
-      <div class="pub-opt ${!state.hasProgram?'sel':''}" onclick="state.hasProgram=false;render()">
-        <div class="po-icon">${icon('calendar')}</div>
-        <div class="po-title">Non, une seule session</div>
-        <div class="po-desc">Aucun programme : un seul créneau pour tous les invités.</div>
-      </div>
-      <div class="pub-opt ${state.hasProgram?'sel':''}" onclick="state.hasProgram=true;render()">
-        <div class="po-icon">${icon('grid')}</div>
-        <div class="po-title">Oui, il y a un programme</div>
-        <div class="po-desc">Plusieurs interventions ou sessions à organiser.</div>
-      </div>
-    </div>`,
-
-  'prog-type': () => `
-    <div class="pub-choice">
-      <div class="pub-opt ${state.programType==='odj'?'sel':''}" onclick="state.programType='odj';render()">
-        <div class="po-icon">${icon('table')}</div>
-        <div class="po-title">Ordre du jour informatif</div>
-        <div class="po-desc">L’invité consulte le programme mais ne réserve pas de créneau — inscription globale à l’événement.</div>
-      </div>
-      <div class="pub-opt ${state.programType==='multi'?'sel':''}" onclick="state.programType='multi';render()">
-        <div class="po-icon">${icon('layers')}</div>
-        <div class="po-title">Multi-sessions</div>
-        <div class="po-desc">Des créneaux indépendants auxquels l’invité s’inscrit individuellement.</div>
-      </div>
-    </div>`,
-
-  'prog-groups': () => `
-    <div class="pub-choice">
-      <div class="pub-opt ${!state.useGroups?'sel':''}" onclick="state.useGroups=false;render()">
-        <div class="po-icon">${icon('grid')}</div>
-        <div class="po-title">Sans groupe</div>
-        <div class="po-desc">Sessions indépendantes : l’invité choisit librement parmi toutes les sessions.</div>
-      </div>
-      <div class="pub-opt ${state.useGroups?'sel':''}" onclick="state.useGroups=true;render()">
-        <div class="po-icon">${icon('layers')}</div>
-        <div class="po-title">Avec groupe</div>
-        <div class="po-desc">Sessions groupées en parcours : choisir un parcours inscrit à toutes ses sessions.</div>
-      </div>
-    </div>`,
-
-  'prog-content': () => {
-    const c = programCase();
-    if (c==='A') return singleSessionEditor();
-    if (c==='B') return agendaEditor();
-    if (c==='D') return parcoursEditor();
-    return sessionsEditor();
+  program: () => {
+    const SCREENS = {
+      'prog-has': () => `
+        <div class="pub-choice">
+          <div class="pub-opt ${!state.hasProgram?'sel':''}" onclick="state.hasProgram=false;progSubGo(state.progSubStep+1)">
+            <div class="po-icon">${icon('calendar')}</div>
+            <div class="po-title">Non, une seule session</div>
+            <div class="po-desc">Aucun programme : un seul créneau pour tous les invités.</div>
+          </div>
+          <div class="pub-opt ${state.hasProgram?'sel':''}" onclick="state.hasProgram=true;progSubGo(state.progSubStep+1)">
+            <div class="po-icon">${icon('grid')}</div>
+            <div class="po-title">Oui, il y a un programme</div>
+            <div class="po-desc">Plusieurs interventions ou sessions à organiser.</div>
+          </div>
+        </div>`,
+      'prog-type': () => `
+        <div class="pub-choice">
+          <div class="pub-opt ${state.programType==='odj'?'sel':''}" onclick="state.programType='odj';progSubGo(state.progSubStep+1)">
+            <div class="po-icon">${icon('table')}</div>
+            <div class="po-title">Ordre du jour informatif</div>
+            <div class="po-desc">L’invité consulte le programme mais ne réserve pas de créneau — inscription globale à l’événement.</div>
+          </div>
+          <div class="pub-opt ${state.programType==='multi'?'sel':''}" onclick="state.programType='multi';progSubGo(state.progSubStep+1)">
+            <div class="po-icon">${icon('layers')}</div>
+            <div class="po-title">Multi-sessions</div>
+            <div class="po-desc">Des créneaux indépendants auxquels l’invité s’inscrit individuellement.</div>
+          </div>
+        </div>`,
+      'prog-groups': () => `
+        <div class="pub-choice">
+          <div class="pub-opt ${!state.useGroups?'sel':''}" onclick="state.useGroups=false;progSubGo(state.progSubStep+1)">
+            <div class="po-icon">${icon('grid')}</div>
+            <div class="po-title">Sans groupe</div>
+            <div class="po-desc">Sessions indépendantes : l’invité choisit librement parmi toutes les sessions.</div>
+          </div>
+          <div class="pub-opt ${state.useGroups?'sel':''}" onclick="state.useGroups=true;progSubGo(state.progSubStep+1)">
+            <div class="po-icon">${icon('layers')}</div>
+            <div class="po-title">Avec groupe</div>
+            <div class="po-desc">Sessions groupées en parcours : choisir un parcours inscrit à toutes ses sessions.</div>
+          </div>
+        </div>`,
+      'prog-content': () => {
+        const c = programCase();
+        if (c==='A') return singleSessionEditor();
+        if (c==='B') return agendaEditor();
+        if (c==='D') return parcoursEditor();
+        return sessionsEditor();
+      },
+    };
+    const key = progSubSteps()[state.progSubStep] || 'prog-has';
+    return `${progProgressBar()}<div style="margin-top:24px">${SCREENS[key]()}</div>`;
   },
 
   'quota-toggle': () => `
