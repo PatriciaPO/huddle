@@ -417,6 +417,14 @@ const state = {
   parcours: [
     { id: 'p1', name: 'Parcours Data', quota: 250 },
   ],
+  /* Présence par salle le jour J — indépendant de sessions[].quota (capacité de résa)
+     puisqu'un check-in peut dépasser ou ne jamais atteindre le nombre de RSVP+. */
+  checkinPresence: { s1: 190, s2: 35, s3: 23 },
+  checkinStaff: [
+    { id: 'st1', name: 'Nadia Ferreira', room: 's1', status: 'actif' },
+    { id: 'st2', name: 'Hugo Chevalier', room: 's2', status: 'actif' },
+    { id: 'st3', name: 'Inès Laurent', room: 's3', status: 'pause' },
+  ],
   speakers: [
     { name: 'Camille Roy', role: 'CTO — NovaData', session: 'Keynote d’ouverture', attachType:'session', attachId:'s1' },
     { name: 'Yanis Berg', role: 'Head of AI — Fintrust', session: 'Atelier — Data & IA', attachType:'session', attachId:'s2' },
@@ -1605,8 +1613,27 @@ views.guests = () => `
 </div>`;
 
 /* =================== CHECK-IN (tab "Jour J" de l'espace événement) =================== */
-/* =================== CHECK-IN =================== */
-views.checkin = () => `
+function toggleStaffStatus(id){
+  const m = state.checkinStaff.find(x=>x.id===id);
+  if (m) m.status = m.status==='actif' ? 'pause' : 'actif';
+  render();
+}
+function assignStaffRoom(id, sessionId){
+  const m = state.checkinStaff.find(x=>x.id===id);
+  if (m) m.room = sessionId;
+  render();
+}
+views.checkin = () => {
+  const FEED = [
+    ['Élodie Faure','Acme Corp','à l’instant','s1'],
+    ['Marc Petit','Fintrust','il y a 1 min','s1'],
+    ['Tom Riddle','NovaData','il y a 2 min','s3'],
+    ['Léa Dubois','Orange','il y a 3 min','s2'],
+    ['Karim Saïd','Capgemini','il y a 4 min','s1'],
+  ];
+  const roomName = id => state.sessions.find(s=>s.id===id)?.salle || '—';
+  const totalPresent = Object.values(state.checkinPresence).reduce((a,n)=>a+n,0);
+  return `
 <div class="page">
   <div class="page-head">
     <div><div class="page-title">Check-in</div>
@@ -1628,33 +1655,70 @@ views.checkin = () => `
         </div>
         <div class="ph-foot">
           <div style="font-size:12px;color:var(--muted)">Participants présents</div>
-          <div class="ph-count">248 <span style="font-size:14px;color:var(--muted);font-weight:500">/ 342</span></div>
+          <div class="ph-count">${totalPresent} <span style="font-size:14px;color:var(--muted);font-weight:500">/ 342</span></div>
         </div>
       </div>
     </div>
     <div class="checkin-feed">
       <div class="sec-title">Derniers check-ins</div>
-      ${[
-        ['Élodie Faure','Acme Corp','à l’instant'],
-        ['Marc Petit','Fintrust','il y a 1 min'],
-        ['Tom Riddle','NovaData','il y a 2 min'],
-        ['Léa Dubois','Orange','il y a 3 min'],
-        ['Karim Saïd','Capgemini','il y a 4 min'],
-      ].map(f=>`
+      ${FEED.map(f=>`
         <div class="feed-item">
           <span class="mini-avatar">${f[0].split(' ').map(x=>x[0]).join('')}</span>
           <div><div style="font-weight:600;font-size:13px">${f[0]}</div>
-          <div style="font-size:12px;color:var(--muted-dark)">${f[1]} · ${icon('check','fi-check')} présent</div></div>
+          <div style="font-size:12px;color:var(--muted-dark)">${f[1]} · ${icon('mapPin')} ${roomName(f[3])}</div></div>
           <span class="fi-time">${f[2]}</span>
         </div>`).join('')}
       <div class="checkin-stats" style="margin-top:20px;display:flex;gap:22px">
         <div><div style="font-size:11px;color:var(--muted-dark)">Invités</div><div style="font-size:20px;font-weight:700">542</div></div>
         <div><div style="font-size:11px;color:var(--muted-dark)">RSVP+</div><div style="font-size:20px;font-weight:700">342</div></div>
-        <div><div style="font-size:11px;color:var(--muted-dark)">Présence effective</div><div style="font-size:20px;font-weight:700;color:var(--acid)">248</div></div>
+        <div><div style="font-size:11px;color:var(--muted-dark)">Présence effective</div><div style="font-size:20px;font-weight:700;color:var(--acid)">${totalPresent}</div></div>
       </div>
     </div>
   </div>
+
+  <div class="grid" style="grid-template-columns:1.4fr 1fr;gap:16px;margin-top:22px;align-items:start">
+    <div class="card">
+      <div class="sec-title">Présence par salle</div>
+      ${state.sessions.map(s=>{
+        const present = state.checkinPresence[s.id] || 0;
+        const pct = s.quota ? Math.min(100, Math.round(present/s.quota*100)) : 0;
+        return `
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-weight:700;font-size:13.5px">${icon('mapPin')} ${s.salle}</div>
+              <div style="font-size:12px;color:var(--muted-dark);margin-top:2px">${s.titre} · ${s.horaire}</div>
+            </div>
+            <span class="tag ${pct>=90?'yellow':'grey'}">${present} / ${s.quota ?? '∞'}</span>
+          </div>
+          <div class="bar" style="margin-top:10px"><i style="width:${pct}%"></i></div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="card">
+      <div class="sec-title">Staff sur site</div>
+      ${state.checkinStaff.map(m=>{
+        const active = m.status==='actif';
+        return `
+        <div class="seg-card">
+          <div class="seg-name">
+            <span class="mini-avatar">${m.name.split(' ').map(x=>x[0]).join('')}</span>
+            <div>
+              <div>${m.name}</div>
+              <select class="sel" style="margin-top:5px;padding:5px 8px;font-size:12px" onchange="assignStaffRoom('${m.id}', this.value)">
+                ${state.sessions.map(s=>`<option value="${s.id}" ${s.id===m.room?'selected':''}>${s.salle}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <span class="tag ${active?'green':'grey'}" style="cursor:pointer" onclick="toggleStaffStatus('${m.id}')">${active?'<span class=dot-acid></span>':''}${active?'En poste':'En pause'}</span>
+        </div>`;
+      }).join('')}
+      <button class="add-line" onclick="alert('Prototype : ajout d’un membre du staff check-in')">${icon('plus')} Ajouter un membre du staff</button>
+    </div>
+  </div>
 </div>`;
+};
 
 /* =================== REPORTING =================== */
 views.reporting = () => {
