@@ -383,6 +383,7 @@ const state = {
   programType: null,        // 'odj' | 'multi'
   useGroups: false,
   progSubStep: 0,           // position dans le mini-parcours interne de l'étape "Programme" (voir progSubSteps())
+  quotaSubStep: 0,          // idem pour l'étape "Quota" (voir quotaSubSteps())
   quotaEnabled: false,      // facultatif, ne s'applique qu'aux cas A/B (obligatoire et toujours vrai en C/D)
   waitlistEnabled: false,   // ne se pose que si un quota est actif
   hasSpeakers: false,
@@ -687,10 +688,9 @@ const ALL_STEPS = [
   { key:'info',    label:'Informations' },
   { key:'segment', label:'Segmentation' },
   { key:'program',         label:'Programme' },
-  { key:'quota-toggle',    label:'Quota ?',              hidden:() => !isCaseAB() },
-  { key:'quota-content',   label:'Quotas',               hidden:() => !quotaActive() },
+  { key:'quota',           label:'Quota' },
   { key:'waitlist',        label:'Liste d’attente',      hidden:() => !quotaActive() },
-  { key:'speakers-toggle', label:'Intervenants ?' },
+  { key:'speakers-toggle', label:'Intervenants' },
   { key:'speakers-content',label:'Intervenants',         hidden:() => !state.hasSpeakers },
   { key:'forms',   label:'Formulaires' },
   { key:'web',     label:'Page web' },
@@ -755,18 +755,47 @@ function progSubGo(i){
   const m=document.querySelector('.main'); if(m)m.scrollTo(0,0);
 }
 
-function progProgressBar(){
-  const steps = progSubSteps();
-  const idx = Math.min(state.progSubStep, steps.length-1);
+/* ---------- même principe pour l'étape "Quota" : une seule entrée dans le
+   wizard, un mini-parcours interne de 1 ou 2 écrans selon le cas. ---------- */
+function quotaSubSteps(){
+  if (isCaseAB()) {
+    const steps = ['quota-toggle'];
+    if (state.quotaEnabled) steps.push('quota-content');
+    return steps;
+  }
+  return ['quota-content']; // cas C/D : quota obligatoire, pas de question à poser
+}
+const QUOTA_SUB_LABELS = { 'quota-toggle':'Quota', 'quota-content':'Détails' };
+
+function quotaSubGo(i){
+  const steps = quotaSubSteps();
+  state.quotaSubStep = Math.max(0, Math.min(steps.length-1, i));
+  render();
+  const m=document.querySelector('.main'); if(m)m.scrollTo(0,0);
+}
+
+/* ligne de progression générique, réutilisée par les étapes "Programme" et "Quota" */
+function subStepper(steps, idx, labels){
   return `<div class="prog-stepper">
     ${steps.map((k,i)=>`
       <div class="prog-stepper-item ${i===idx?'current':(i<idx?'done':'')}">
         <span class="prog-stepper-dot">${i<idx?icon('check'):i+1}</span>
-        <span class="prog-stepper-label">${PROG_SUB_LABELS[k]}</span>
+        <span class="prog-stepper-label">${labels[k]}</span>
       </div>
       ${i<steps.length-1?'<span class="prog-stepper-line"></span>':''}`).join('')}
   </div>`;
 }
+function progProgressBar(){
+  const steps = progSubSteps();
+  return subStepper(steps, Math.min(state.progSubStep, steps.length-1), PROG_SUB_LABELS);
+}
+
+/* Registre des étapes wizard qui contiennent un mini-parcours interne,
+   utilisé par wizGo()/wizFoot() pour naviguer dedans avant de changer d'étape. */
+const SUB_FLOWS = {
+  program: { subSteps: progSubSteps, goToName: 'progSubGo', stateKey: 'progSubStep' },
+  quota:   { subSteps: quotaSubSteps, goToName: 'quotaSubGo', stateKey: 'quotaSubStep' },
+};
 
 /* regroupe state.sessions par parcours, en conservant l'index réel dans state.sessions
    (nécessaire pour que les handlers d'édition ciblent la bonne entrée) */
@@ -941,7 +970,7 @@ function waitlistLandingPreview(){
 
 /* Steps grouped into 3 collapsible phase cards for the sidebar nav */
 const PHASES = [
-  { key:'setup',      label:'Je configure',                    icon:'settings', steps:['format','info','segment','program','quota-toggle','quota-content','waitlist','speakers-toggle','speakers-content'] },
+  { key:'setup',      label:'Je configure',                    icon:'settings', steps:['format','info','segment','program','quota','waitlist','speakers-toggle','speakers-content'] },
   { key:'experience', label:'Je construis l’expérience invité', icon:'grid',     steps:['forms','web','comms'] },
   { key:'launch',     label:'Je diffuse et je mesure',          icon:'rocket',   steps:['publish','survey'] },
 ];
@@ -952,8 +981,9 @@ const PHASES = [
 function wizGo(i){
   const steps = wizardSteps();
   const target = steps[Math.max(0, Math.min(steps.length-1, i))];
-  if (target && target.key === 'program' && i !== state.wizardStep) {
-    state.progSubStep = (i > state.wizardStep) ? 0 : progSubSteps().length-1;
+  const flow = target && SUB_FLOWS[target.key];
+  if (flow && i !== state.wizardStep) {
+    state[flow.stateKey] = (i > state.wizardStep) ? 0 : flow.subSteps().length-1;
   }
   state.wizardStep = Math.max(0, Math.min(steps.length-1, i));
   state.wizardMax = Math.max(state.wizardMax, state.wizardStep);
@@ -1003,17 +1033,18 @@ function wizFoot(){
   const first = state.wizardStep===0;
   const last = state.wizardStep===steps.length-1;
 
-  // Tant qu'on est dans le mini-parcours interne de l'étape "Programme",
-  // Précédent/Continuer naviguent d'abord dedans (voir progSubGo()) et ne
-  // passent à l'étape wizard suivante/précédente qu'une fois à ses bornes.
-  const inProgram = steps[state.wizardStep] && steps[state.wizardStep].key === 'program';
-  const subLen = inProgram ? progSubSteps().length : 0;
-  const atSubStart = inProgram && state.progSubStep === 0;
-  const atSubEnd = inProgram && state.progSubStep === subLen-1;
-  const prevAction = (inProgram && !atSubStart) ? `progSubGo(${state.progSubStep-1})` : `wizGo(${state.wizardStep-1})`;
-  const nextAction = (inProgram && !atSubEnd) ? `progSubGo(${state.progSubStep+1})` : `wizGo(${state.wizardStep+1})`;
-  const isFirstScreen = first && (!inProgram || atSubStart);
-  const isLastScreen = last && (!inProgram || atSubEnd);
+  // Tant qu'on est dans le mini-parcours interne d'une étape comme "Programme"
+  // ou "Quota" (voir SUB_FLOWS), Précédent/Continuer naviguent d'abord dedans
+  // et ne passent à l'étape wizard suivante/précédente qu'une fois à ses bornes.
+  const flow = SUB_FLOWS[steps[state.wizardStep] && steps[state.wizardStep].key];
+  const subLen = flow ? flow.subSteps().length : 0;
+  const subIdx = flow ? state[flow.stateKey] : 0;
+  const atSubStart = flow && subIdx === 0;
+  const atSubEnd = flow && subIdx === subLen-1;
+  const prevAction = (flow && !atSubStart) ? `${flow.goToName}(${subIdx-1})` : `wizGo(${state.wizardStep-1})`;
+  const nextAction = (flow && !atSubEnd) ? `${flow.goToName}(${subIdx+1})` : `wizGo(${state.wizardStep+1})`;
+  const isFirstScreen = first && (!flow || atSubStart);
+  const isLastScreen = last && (!flow || atSubEnd);
 
   return `<div class="wp-foot">
     <button class="btn btn-ghost ${isFirstScreen?'hidden':''}" onclick="${prevAction}">${icon('arrowLeft')} Précédent</button>
@@ -1124,44 +1155,52 @@ const stepBody = {
     return `${progProgressBar()}<div style="margin-top:24px">${SCREENS[key]()}</div>`;
   },
 
-  'quota-toggle': () => `
-    <div class="pub-choice">
-      <div class="pub-opt ${!state.quotaEnabled?'sel':''}" onclick="state.quotaEnabled=false;render()">
-        <div class="po-icon">${icon('info')}</div>
-        <div class="po-title">Pas de quota</div>
-        <div class="po-desc">Nombre de places illimité, aucune capacité à surveiller.</div>
-      </div>
-      <div class="pub-opt ${state.quotaEnabled?'sel':''}" onclick="state.quotaEnabled=true;render()">
-        <div class="po-icon">${icon('chart')}</div>
-        <div class="po-title">Quota</div>
-        <div class="po-desc">Limiter le nombre total de places pour l’événement.</div>
-      </div>
-    </div>`,
-
-  'quota-content': () => {
-    const c = programCase();
-    if (c==='A' || c==='B') return `
-      <div class="field"><label>Capacité globale de l’événement</label>
-        <div class="row2"><input class="inp" type="number" value="${state.eventCapacity??''}" oninput="state.eventCapacity=this.value?+this.value:null;render()"><div style="display:flex;align-items:center;color:var(--muted-dark);font-size:13px">places disponibles</div></div>
-      </div>`;
-    if (c==='D') return `
-      <div class="sec-title" style="margin-bottom:10px">Quota par parcours</div>
-      ${protoNote('Chaque parcours a sa propre jauge, définie directement (indépendante des sessions qui le composent).')}
-      <div style="margin-top:14px">
-      ${state.parcours.map((p,i)=>`
-        <div class="toggle-row">
-          <div><div class="tr-title">${p.name}</div><div class="tr-desc">${state.sessions.filter(s=>s.parcoursId===p.id).map(s=>s.titre).join(' · ')||'Aucune session'}</div></div>
-          <div style="display:flex;align-items:center;gap:10px"><input class="inp" type="number" value="${p.quota??''}" style="width:90px;padding:8px 10px" oninput="state.parcours[${i}].quota=this.value?+this.value:null;render()"><span style="font-size:12.5px;color:var(--muted-dark)">places</span></div>
-        </div>`).join('')}
-      </div>`;
-    // cas C
-    return `
-      <div class="sec-title" style="margin-bottom:10px">Quota par session</div>
-      ${state.sessions.map((s,i)=>`
-        <div class="toggle-row">
-          <div><div class="tr-title">${s.titre}</div><div class="tr-desc">${icon('mapPin')} ${s.salle}</div></div>
-          <div style="display:flex;align-items:center;gap:10px"><input class="inp" type="number" value="${s.quota??''}" style="width:90px;padding:8px 10px" oninput="state.sessions[${i}].quota=this.value?+this.value:null;render()"><span style="font-size:12.5px;color:var(--muted-dark)">places</span></div>
-        </div>`).join('')}`;
+  quota: () => {
+    const SCREENS = {
+      'quota-toggle': () => `
+        <div class="pub-choice">
+          <div class="pub-opt ${!state.quotaEnabled?'sel':''}" onclick="state.quotaEnabled=false;quotaSubGo(state.quotaSubStep+1)">
+            <div class="po-icon">${icon('info')}</div>
+            <div class="po-title">Pas de quota</div>
+            <div class="po-desc">Nombre de places illimité, aucune capacité à surveiller.</div>
+          </div>
+          <div class="pub-opt ${state.quotaEnabled?'sel':''}" onclick="state.quotaEnabled=true;quotaSubGo(state.quotaSubStep+1)">
+            <div class="po-icon">${icon('chart')}</div>
+            <div class="po-title">Quota</div>
+            <div class="po-desc">Limiter le nombre total de places pour l’événement.</div>
+          </div>
+        </div>`,
+      'quota-content': () => {
+        const c = programCase();
+        if (c==='A' || c==='B') return `
+          <div class="field"><label>Capacité globale de l’événement</label>
+            <div class="row2"><input class="inp" type="number" value="${state.eventCapacity??''}" oninput="state.eventCapacity=this.value?+this.value:null;render()"><div style="display:flex;align-items:center;color:var(--muted-dark);font-size:13px">places disponibles</div></div>
+          </div>`;
+        if (c==='D') return `
+          <div class="sec-title" style="margin-bottom:10px">Quota par parcours</div>
+          ${protoNote('Chaque parcours a sa propre jauge, définie directement (indépendante des sessions qui le composent).')}
+          <div style="margin-top:14px">
+          ${state.parcours.map((p,i)=>`
+            <div class="toggle-row">
+              <div><div class="tr-title">${p.name}</div><div class="tr-desc">${state.sessions.filter(s=>s.parcoursId===p.id).map(s=>s.titre).join(' · ')||'Aucune session'}</div></div>
+              <div style="display:flex;align-items:center;gap:10px"><input class="inp" type="number" value="${p.quota??''}" style="width:90px;padding:8px 10px" oninput="state.parcours[${i}].quota=this.value?+this.value:null;render()"><span style="font-size:12.5px;color:var(--muted-dark)">places</span></div>
+            </div>`).join('')}
+          </div>`;
+        // cas C
+        return `
+          <div class="sec-title" style="margin-bottom:10px">Quota par session</div>
+          ${state.sessions.map((s,i)=>`
+            <div class="toggle-row">
+              <div><div class="tr-title">${s.titre}</div><div class="tr-desc">${icon('mapPin')} ${s.salle}</div></div>
+              <div style="display:flex;align-items:center;gap:10px"><input class="inp" type="number" value="${s.quota??''}" style="width:90px;padding:8px 10px" oninput="state.sessions[${i}].quota=this.value?+this.value:null;render()"><span style="font-size:12.5px;color:var(--muted-dark)">places</span></div>
+            </div>`).join('')}`;
+      },
+    };
+    const steps = quotaSubSteps();
+    const idx = Math.min(state.quotaSubStep, steps.length-1);
+    const key = steps[idx] || 'quota-toggle';
+    const bar = steps.length > 1 ? subStepper(steps, idx, QUOTA_SUB_LABELS) : '';
+    return bar ? `${bar}<div style="margin-top:24px">${SCREENS[key]()}</div>` : SCREENS[key]();
   },
 
   waitlist: () => {
