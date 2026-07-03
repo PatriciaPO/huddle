@@ -286,23 +286,23 @@
   .legend-item .lg-val{margin-left:auto;font-weight:700}
 
   /* check-in phone */
-  .phone-demo{display:flex;gap:32px;align-items:center;flex-wrap:wrap}
-  .phone{width:250px;flex:0 0 250px;background:var(--ink);border-radius:30px;padding:12px;box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
-  .phone .screen{background:#161616;border-radius:22px;overflow:hidden;height:500px;position:relative;display:flex;flex-direction:column}
-  .phone .ph-top{padding:18px 18px 14px;color:var(--paper)}
-  .phone .ph-scan{flex:1;margin:0 18px;border:2px solid var(--acid);border-radius:16px;position:relative;background:#0c0c0c;overflow:hidden}
-  .phone .ph-scan svg{width:56px;height:56px;stroke-width:1.2}
+  .phone-demo{display:flex;gap:20px;align-items:center}
+  .phone{width:150px;flex:0 0 150px;background:var(--ink);border-radius:20px;padding:8px;box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
+  .phone .screen{background:#161616;border-radius:14px;overflow:hidden;height:290px;position:relative;display:flex;flex-direction:column}
+  .phone .ph-top{padding:12px 12px 8px;color:var(--paper)}
+  .phone .ph-scan{flex:1;margin:0 12px;border:2px solid var(--acid);border-radius:11px;position:relative;background:#0c0c0c;overflow:hidden}
+  .phone .ph-scan svg{width:32px;height:32px;stroke-width:1.2}
   .scanline{position:absolute;left:0;right:0;height:2px;background:var(--acid);box-shadow:0 0 12px var(--acid);animation:scan 2.4s ease-in-out infinite}
   @keyframes scan{0%,100%{top:12%}50%{top:88%}}
-  .phone .ph-corner{position:absolute;width:26px;height:26px;border:3px solid var(--acid)}
-  .c-tl{top:14px;left:14px;border-right:none;border-bottom:none;border-radius:8px 0 0 0}
-  .c-tr{top:14px;right:14px;border-left:none;border-bottom:none;border-radius:0 8px 0 0}
-  .c-bl{bottom:14px;left:14px;border-right:none;border-top:none;border-radius:0 0 0 8px}
-  .c-br{bottom:14px;right:14px;border-left:none;border-top:none;border-radius:0 0 8px 0}
-  .phone .ph-foot{padding:20px 18px;color:var(--paper);text-align:center}
-  .ph-count{font-size:30px;font-weight:700;color:var(--acid)}
+  .phone .ph-corner{position:absolute;width:16px;height:16px;border:3px solid var(--acid)}
+  .c-tl{top:9px;left:9px;border-right:none;border-bottom:none;border-radius:6px 0 0 0}
+  .c-tr{top:9px;right:9px;border-left:none;border-bottom:none;border-radius:0 6px 0 0}
+  .c-bl{bottom:9px;left:9px;border-right:none;border-top:none;border-radius:0 0 0 6px}
+  .c-br{bottom:9px;right:9px;border-left:none;border-top:none;border-radius:0 0 6px 0}
+  .phone .ph-foot{padding:12px 12px;color:var(--paper);text-align:center}
+  .ph-count{font-size:22px;font-weight:700;color:var(--acid)}
 
-  .checkin-feed{flex:1;min-width:300px}
+  .checkin-feed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));column-gap:24px}
   .feed-item{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid #eeede6}
   .feed-item .fi-time{font-size:11.5px;color:var(--muted-dark);margin-left:auto}
   .fi-check{width:12px;height:12px;flex:0 0 12px;stroke-width:2.5;vertical-align:-1px;color:var(--acid-dark, #6b8f00)}
@@ -386,6 +386,7 @@ const state = {
   quotaSubStep: 0,          // idem pour l'étape "Quota" (voir quotaSubSteps())
   quotaEnabled: false,      // facultatif, ne s'applique qu'aux cas A/B (obligatoire et toujours vrai en C/D)
   waitlistEnabled: false,   // ne se pose que si un quota est actif
+  speakersSubStep: 0,       // idem pour l'étape "Intervenants" (voir speakersSubSteps())
   hasSpeakers: false,
   speakerFormOpen: false,   // écran d'ajout d'un intervenant (bouton "Ajouter" du bloc Intervenants)
   speakerDraft: { name:'', role:'', attach:'' }, // brouillon en cours de saisie dans ce même écran
@@ -698,8 +699,7 @@ const ALL_STEPS = [
   { key:'program',         label:'Programme' },
   { key:'quota',           label:'Quota' },
   { key:'waitlist',        label:'Liste d’attente',      hidden:() => !quotaActive() },
-  { key:'speakers-toggle', label:'Intervenants' },
-  { key:'speakers-content',label:'Intervenants',         hidden:() => !state.hasSpeakers },
+  { key:'speakers',        label:'Intervenants' },
   { key:'forms',   label:'Formulaires' },
   { key:'web',     label:'Page web' },
   { key:'comms',   label:'Communications' },
@@ -782,7 +782,23 @@ function quotaSubGo(i){
   const m=document.querySelector('.main'); if(m)m.scrollTo(0,0);
 }
 
-/* ligne de progression générique, réutilisée par les étapes "Programme" et "Quota" */
+/* ---------- même principe pour l'étape "Intervenants" : une seule entrée
+   dans le wizard, un mini-parcours interne de 1 ou 2 écrans selon la réponse. ---------- */
+function speakersSubSteps(){
+  const steps = ['speakers-toggle'];
+  if (state.hasSpeakers) steps.push('speakers-content');
+  return steps;
+}
+const SPEAKERS_SUB_LABELS = { 'speakers-toggle':'Intervenants', 'speakers-content':'Détails' };
+
+function speakersSubGo(i){
+  const steps = speakersSubSteps();
+  state.speakersSubStep = Math.max(0, Math.min(steps.length-1, i));
+  render();
+  const m=document.querySelector('.main'); if(m)m.scrollTo(0,0);
+}
+
+/* ligne de progression générique, réutilisée par les étapes "Programme", "Quota" et "Intervenants" */
 function subStepper(steps, idx, labels){
   return `<div class="prog-stepper">
     ${steps.map((k,i)=>`
@@ -801,8 +817,9 @@ function progProgressBar(){
 /* Registre des étapes wizard qui contiennent un mini-parcours interne,
    utilisé par wizGo()/wizFoot() pour naviguer dedans avant de changer d'étape. */
 const SUB_FLOWS = {
-  program: { subSteps: progSubSteps, goToName: 'progSubGo', stateKey: 'progSubStep' },
-  quota:   { subSteps: quotaSubSteps, goToName: 'quotaSubGo', stateKey: 'quotaSubStep' },
+  program:  { subSteps: progSubSteps,     goToName: 'progSubGo',     stateKey: 'progSubStep' },
+  quota:    { subSteps: quotaSubSteps,    goToName: 'quotaSubGo',    stateKey: 'quotaSubStep' },
+  speakers: { subSteps: speakersSubSteps, goToName: 'speakersSubGo', stateKey: 'speakersSubStep' },
 };
 
 /* regroupe state.sessions par parcours, en conservant l'index réel dans state.sessions
@@ -978,7 +995,7 @@ function waitlistLandingPreview(){
 
 /* Steps grouped into 3 collapsible phase cards for the sidebar nav */
 const PHASES = [
-  { key:'setup',      label:'Je configure',                    icon:'settings', steps:['format','info','segment','program','quota','waitlist','speakers-toggle','speakers-content'] },
+  { key:'setup',      label:'Je configure',                    icon:'settings', steps:['format','info','segment','program','quota','waitlist','speakers'] },
   { key:'experience', label:'Je construis l’expérience invité', icon:'grid',     steps:['forms','web','comms'] },
   { key:'launch',     label:'Je diffuse et je mesure',          icon:'rocket',   steps:['publish','survey'] },
 ];
@@ -1238,50 +1255,58 @@ const stepBody = {
       <button class="btn btn-ghost" style="margin-top:14px" onclick="state.waitlistPreview='${state.waitlistEnabled?'liberee':'complet'}';render()">${icon('send')} Aperçu ${state.waitlistEnabled?'de l’e-mail':'de la page'}</button>`;
   },
 
-  'speakers-toggle': () => `
-    <div class="pub-choice">
-      <div class="pub-opt ${!state.hasSpeakers?'sel':''}" onclick="state.hasSpeakers=false;render()">
-        <div class="po-icon">${icon('info')}</div>
-        <div class="po-title">Non</div>
-        <div class="po-desc">Aucun intervenant à mettre en avant.</div>
-      </div>
-      <div class="pub-opt ${state.hasSpeakers?'sel':''}" onclick="state.hasSpeakers=true;render()">
-        <div class="po-icon">${icon('users')}</div>
-        <div class="po-title">Oui, il y a des intervenants</div>
-        <div class="po-desc">Mettez en avant les personnes qui interviennent.</div>
-      </div>
-    </div>`,
-
-  'speakers-content': () => {
-    if (state.speakerFormOpen) {
-      const opts = attachOptions();
-      return `
-        <button class="btn btn-ghost" style="margin-bottom:16px" onclick="state.speakerFormOpen=false;render()">${icon('arrowLeft')} Annuler</button>
-        <div class="row2">
-          <div class="field"><label>Nom complet</label><input class="inp" value="${state.speakerDraft.name}" oninput="state.speakerDraft.name=this.value;render()" placeholder="Jeanne Dupont"></div>
-          <div class="field"><label>Rôle / société</label><input class="inp" value="${state.speakerDraft.role}" oninput="state.speakerDraft.role=this.value;render()" placeholder="CTO — Acme Corp"></div>
-        </div>
-        <div class="field"><label>Rattaché à</label>
-          <select class="sel" onchange="state.speakerDraft.attach=this.value;render()">
-            <option value="">— Choisir —</option>
-            ${opts.map(o=>`<option value="${o.value}" ${state.speakerDraft.attach===o.value?'selected':''}>${o.label}</option>`).join('')}
-          </select>
-        </div>
-        <button class="btn btn-primary" style="margin-top:8px" ${(!state.speakerDraft.name||!state.speakerDraft.attach)?'disabled':''} onclick="addSpeakerFromDraft()">${icon('check')} Enregistrer l’intervenant</button>`;
-    }
-    return `
-      ${protoNote('Les intervenants sont rattachés au programme, à une session, ou à un parcours selon la configuration choisie.')}
-      ${state.speakers.map((sp,i)=>`
-        <div class="seg-card">
-          <div class="seg-name"><span class="mini-avatar">${sp.name.split(' ').map(x=>x[0]).join('')}</span>
-            <div><div>${sp.name}</div><div style="font-size:12px;color:var(--muted-dark);font-weight:400">${sp.role}</div></div>
+  speakers: () => {
+    const SCREENS = {
+      'speakers-toggle': () => `
+        <div class="pub-choice">
+          <div class="pub-opt ${!state.hasSpeakers?'sel':''}" onclick="state.hasSpeakers=false;speakersSubGo(state.speakersSubStep+1)">
+            <div class="po-icon">${icon('info')}</div>
+            <div class="po-title">Non</div>
+            <div class="po-desc">Aucun intervenant à mettre en avant.</div>
           </div>
-          <div style="display:flex;align-items:center;gap:14px">
-            <span class="tag grey">${sp.session}</span>
-            <button class="icon-btn" onclick="state.speakers.splice(${i},1);render()">${icon('trash')}</button>
+          <div class="pub-opt ${state.hasSpeakers?'sel':''}" onclick="state.hasSpeakers=true;speakersSubGo(state.speakersSubStep+1)">
+            <div class="po-icon">${icon('users')}</div>
+            <div class="po-title">Oui, il y a des intervenants</div>
+            <div class="po-desc">Mettez en avant les personnes qui interviennent.</div>
           </div>
-        </div>`).join('')}
-      <button class="add-line" onclick="state.speakerDraft={name:'',role:'',attach:''};state.speakerFormOpen=true;render()">${icon('plus')} Ajouter un intervenant</button>`;
+        </div>`,
+      'speakers-content': () => {
+        if (state.speakerFormOpen) {
+          const opts = attachOptions();
+          return `
+            <button class="btn btn-ghost" style="margin-bottom:16px" onclick="state.speakerFormOpen=false;render()">${icon('arrowLeft')} Annuler</button>
+            <div class="row2">
+              <div class="field"><label>Nom complet</label><input class="inp" value="${state.speakerDraft.name}" oninput="state.speakerDraft.name=this.value;render()" placeholder="Jeanne Dupont"></div>
+              <div class="field"><label>Rôle / société</label><input class="inp" value="${state.speakerDraft.role}" oninput="state.speakerDraft.role=this.value;render()" placeholder="CTO — Acme Corp"></div>
+            </div>
+            <div class="field"><label>Rattaché à</label>
+              <select class="sel" onchange="state.speakerDraft.attach=this.value;render()">
+                <option value="">— Choisir —</option>
+                ${opts.map(o=>`<option value="${o.value}" ${state.speakerDraft.attach===o.value?'selected':''}>${o.label}</option>`).join('')}
+              </select>
+            </div>
+            <button class="btn btn-primary" style="margin-top:8px" ${(!state.speakerDraft.name||!state.speakerDraft.attach)?'disabled':''} onclick="addSpeakerFromDraft()">${icon('check')} Enregistrer l’intervenant</button>`;
+        }
+        return `
+          ${protoNote('Les intervenants sont rattachés au programme, à une session, ou à un parcours selon la configuration choisie.')}
+          ${state.speakers.map((sp,i)=>`
+            <div class="seg-card">
+              <div class="seg-name"><span class="mini-avatar">${sp.name.split(' ').map(x=>x[0]).join('')}</span>
+                <div><div>${sp.name}</div><div style="font-size:12px;color:var(--muted-dark);font-weight:400">${sp.role}</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px">
+                <span class="tag grey">${sp.session}</span>
+                <button class="icon-btn" onclick="state.speakers.splice(${i},1);render()">${icon('trash')}</button>
+              </div>
+            </div>`).join('')}
+          <button class="add-line" onclick="state.speakerDraft={name:'',role:'',attach:''};state.speakerFormOpen=true;render()">${icon('plus')} Ajouter un intervenant</button>`;
+      },
+    };
+    const steps = speakersSubSteps();
+    const idx = Math.min(state.speakersSubStep, steps.length-1);
+    const key = steps[idx] || 'speakers-toggle';
+    const bar = steps.length > 1 ? subStepper(steps, idx, SPEAKERS_SUB_LABELS) : '';
+    return bar ? `${bar}<div style="margin-top:24px">${SCREENS[key]()}</div>` : SCREENS[key]();
   },
 
   segment: () => state.segmentBuilder ? segmentBuilderView() : `
@@ -1640,43 +1665,29 @@ views.checkin = () => {
     <div class="page-sub">Scan des QR-codes via l’application mobile Huddle — Sommet Data & IA 2026</div></div>
     <span class="tag green"><span class="dot-acid"></span> Session en direct</span>
   </div>
-  <div class="phone-demo">
-    <div class="phone">
-      <div class="screen">
-        <div class="ph-top">
-          <div style="display:flex;align-items:center;gap:8px">${logoMark('ph-logo')}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:10px">Sommet Data &amp; IA 2026</div>
-        </div>
-        <div class="ph-scan">
-          <div class="ph-corner c-tl"></div><div class="ph-corner c-tr"></div>
-          <div class="ph-corner c-bl"></div><div class="ph-corner c-br"></div>
-          <div class="scanline"></div>
-          <div style="position:absolute;inset:0;display:grid;place-items:center;color:#333">${icon('qr','')}</div>
-        </div>
-        <div class="ph-foot">
-          <div style="font-size:12px;color:var(--muted)">Participants présents</div>
-          <div class="ph-count">${totalPresent} <span style="font-size:14px;color:var(--muted);font-weight:500">/ 342</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="checkin-feed">
-      <div class="sec-title">Derniers check-ins</div>
-      ${FEED.map(f=>`
-        <div class="feed-item">
-          <span class="mini-avatar">${f[0].split(' ').map(x=>x[0]).join('')}</span>
-          <div><div style="font-weight:600;font-size:13px">${f[0]}</div>
-          <div style="font-size:12px;color:var(--muted-dark)">${f[1]} · ${icon('mapPin')} ${roomName(f[3])}</div></div>
-          <span class="fi-time">${f[2]}</span>
-        </div>`).join('')}
-      <div class="checkin-stats" style="margin-top:20px;display:flex;gap:22px">
-        <div><div style="font-size:11px;color:var(--muted-dark)">Invités</div><div style="font-size:20px;font-weight:700">542</div></div>
-        <div><div style="font-size:11px;color:var(--muted-dark)">RSVP+</div><div style="font-size:20px;font-weight:700">342</div></div>
-        <div><div style="font-size:11px;color:var(--muted-dark)">Présence effective</div><div style="font-size:20px;font-weight:700;color:var(--acid)">${totalPresent}</div></div>
-      </div>
-    </div>
-  </div>
 
-  <div class="grid" style="grid-template-columns:1.4fr 1fr;gap:16px;margin-top:22px;align-items:start">
+  <div class="grid" style="grid-template-columns:190px 1fr 1fr;gap:16px;align-items:start">
+    <div class="card" style="display:flex;justify-content:center">
+      <div class="phone">
+        <div class="screen">
+          <div class="ph-top">
+            <div style="display:flex;align-items:center;gap:8px">${logoMark('ph-logo')}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:8px">Sommet Data &amp; IA 2026</div>
+          </div>
+          <div class="ph-scan">
+            <div class="ph-corner c-tl"></div><div class="ph-corner c-tr"></div>
+            <div class="ph-corner c-bl"></div><div class="ph-corner c-br"></div>
+            <div class="scanline"></div>
+            <div style="position:absolute;inset:0;display:grid;place-items:center;color:#333">${icon('qr','')}</div>
+          </div>
+          <div class="ph-foot">
+            <div style="font-size:11px;color:var(--muted)">Présents</div>
+            <div class="ph-count">${totalPresent} <span style="font-size:12px;color:var(--muted);font-weight:500">/ 342</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="sec-title">Présence par salle</div>
       ${state.sessions.map(s=>{
@@ -1715,6 +1726,24 @@ views.checkin = () => {
         </div>`;
       }).join('')}
       <button class="add-line" onclick="alert('Prototype : ajout d’un membre du staff check-in')">${icon('plus')} Ajouter un membre du staff</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="sec-title">Derniers check-ins</div>
+    <div class="checkin-feed-grid">
+      ${FEED.map(f=>`
+        <div class="feed-item">
+          <span class="mini-avatar">${f[0].split(' ').map(x=>x[0]).join('')}</span>
+          <div><div style="font-weight:600;font-size:13px">${f[0]}</div>
+          <div style="font-size:12px;color:var(--muted-dark)">${f[1]} · ${icon('mapPin')} ${roomName(f[3])}</div></div>
+          <span class="fi-time">${f[2]}</span>
+        </div>`).join('')}
+    </div>
+    <div class="checkin-stats" style="margin-top:20px;display:flex;gap:22px">
+      <div><div style="font-size:11px;color:var(--muted-dark)">Invités</div><div style="font-size:20px;font-weight:700">542</div></div>
+      <div><div style="font-size:11px;color:var(--muted-dark)">RSVP+</div><div style="font-size:20px;font-weight:700">342</div></div>
+      <div><div style="font-size:11px;color:var(--muted-dark)">Présence effective</div><div style="font-size:20px;font-weight:700;color:var(--acid)">${totalPresent}</div></div>
     </div>
   </div>
 </div>`;
