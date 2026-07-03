@@ -190,6 +190,14 @@
   .session-row{display:grid;grid-template-columns:1fr 130px 90px 40px;gap:12px;align-items:center;padding:14px;background:#faf9f5;border:1px solid #eeede6;border-radius:var(--radius-sm);margin-bottom:10px}
   .session-row .s-name{font-size:13.5px;font-weight:600}
   .session-row .s-sub{font-size:12px;color:var(--muted-dark);margin-top:2px}
+  .agenda-row{display:grid;grid-template-columns:74px 1fr 150px 40px;gap:12px;align-items:center;padding:14px;background:#faf9f5;border:1px solid #eeede6;border-radius:var(--radius-sm);margin-bottom:10px}
+  .agenda-row .s-name{font-size:13.5px;font-weight:600}
+  .agenda-row .s-sub{font-size:12px;color:var(--muted-dark);margin-top:2px}
+  .group-card{border:1.5px solid #eeede6;border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;background:#fff}
+  .group-card .grp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px}
+  .group-card .grp-title{font-size:14px;font-weight:700;flex:1;border:none;background:transparent;padding:0;width:auto}
+  .group-card .grp-title:focus{outline:none;box-shadow:none}
+  .group-card .grp-quota{font-size:12px;color:var(--muted-dark);white-space:nowrap}
   .icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted-dark);transition:.12s}
   .icon-btn:hover{background:#eeede6;color:var(--danger)}
   .icon-btn svg{width:16px;height:16px;stroke-width:1.8}
@@ -354,7 +362,23 @@ const state = {
   wizardOpenPhase: null,     // phase card manually expanded; null = follow active phase
   eventType: 'Conférence',
   eventFormat: 'physique',   // 'physique' | 'distanciel' | 'hybride'
-  eventMode: 'multi',        // 'simple' | 'multi'
+  /* Arbre de décision du programme (voir programCase()) :
+       hasProgram=false                        → cas A (aucun programme, une seule session)
+       hasProgram=true, programType='odj'      → cas B (ordre du jour informatif)
+       hasProgram=true, programType='multi', useGroups=false → cas C (sessions indépendantes)
+       hasProgram=true, programType='multi', useGroups=true  → cas D (sessions groupées en parcours)
+     Changer un réglage ne supprime jamais de données : les champs restent en
+     mémoire même masqués, pour ne rien perdre si l'utilisateur revient en arrière. */
+  hasProgram: false,
+  programType: null,        // 'odj' | 'multi'
+  useGroups: false,
+  quotaEnabled: false,      // facultatif, ne s'applique qu'aux cas A/B (obligatoire et toujours vrai en C/D)
+  waitlistEnabled: false,   // ne se pose que si un quota est actif
+  hasSpeakers: false,
+  speakerFormOpen: false,   // écran d'ajout d'un intervenant (bouton "Ajouter" du bloc Intervenants)
+  speakerDraft: { name:'', role:'', attach:'' }, // brouillon en cours de saisie dans ce même écran
+  waitlistPreview: null,    // null | 'complet' | 'liberee' — aperçu réel ouvert depuis l'étape Liste d'attente
+  eventCapacity: 400,       // capacité globale — utilisée seulement pour les cas A/B avec quota activé
   eventInfo: {
     name: 'Sommet Data & IA 2026',
     date: '2026-03-18',
@@ -367,15 +391,24 @@ const state = {
   settingsTab: 'general',
   builderOpen: null,         // null | 'page' | 'email' | 'form' — quel builder est ouvert
   builderDevice: 'desktop',  // 'desktop' | 'mobile' — aperçu du builder
+  /* Modèle unique : une session = { id, horaire, titre, salle, quota, parcoursId }.
+     Un agenda mono-ligne (cas A), un agenda multi-lignes (cas B), des sessions à
+     quota individuel (cas C) ou groupées en parcours à quota de groupe (cas D)
+     ne sont que des variations d'affichage/édition de cette même liste — voir
+     programModel(). parcoursId est optionnel : une session reste indépendante
+     tant qu'elle n'est rattachée à aucun parcours. */
   sessions: [
-    { name: 'Keynote d’ouverture', room: 'Grand Auditorium', quota: 300 },
-    { name: 'Atelier — Data & IA', room: 'Salle Bleue', quota: 40 },
-    { name: 'Table ronde partenaires', room: 'Salle Verte', quota: 60 },
+    { id: 's1', horaire: '09h00', titre: 'Keynote d’ouverture', salle: 'Grand Auditorium', quota: 300, parcoursId: 'p1' },
+    { id: 's2', horaire: '11h00', titre: 'Atelier — Data & IA', salle: 'Salle Bleue', quota: 40, parcoursId: 'p1' },
+    { id: 's3', horaire: '14h30', titre: 'Table ronde partenaires', salle: 'Salle Verte', quota: 60, parcoursId: null },
+  ],
+  parcours: [
+    { id: 'p1', name: 'Parcours Data', quota: 250 },
   ],
   speakers: [
-    { name: 'Camille Roy', role: 'CTO — NovaData', session: 'Keynote d’ouverture' },
-    { name: 'Yanis Berg', role: 'Head of AI — Fintrust', session: 'Atelier — Data & IA' },
-    { name: 'Sofia Meng', role: 'Directrice RH — Grupo', session: 'Table ronde partenaires' },
+    { name: 'Camille Roy', role: 'CTO — NovaData', session: 'Keynote d’ouverture', attachType:'session', attachId:'s1' },
+    { name: 'Yanis Berg', role: 'Head of AI — Fintrust', session: 'Atelier — Data & IA', attachType:'session', attachId:'s2' },
+    { name: 'Sofia Meng', role: 'Directrice RH — Grupo', session: 'Table ronde partenaires', attachType:'session', attachId:'s3' },
   ],
   segments: [
     { name: 'Clients grands comptes', count: 420, color: '#CDFF3A' },
@@ -638,28 +671,232 @@ views.events = () => `
 </div>`;
 
 /* =================== CREATE EVENT — WIZARD =================== */
-/* Full catalogue of steps. `simpleHidden` steps disappear in "Événement simple" mode. */
 const ALL_STEPS = [
   { key:'format',  label:'Format' },
   { key:'info',    label:'Informations' },
   { key:'segment', label:'Segmentation' },
-  { key:'program', label:'Programme & sessions' },
-  { key:'quotas',  label:'Quotas', simpleHidden:true },
-  { key:'speakers',label:'Intervenants', simpleHidden:true },
+  { key:'prog-has',        label:'Programme ?' },
+  { key:'prog-type',       label:'Type de programme',    hidden:() => !state.hasProgram },
+  { key:'prog-groups',     label:'Groupe de sessions ?', hidden:() => !(state.hasProgram && state.programType==='multi') },
+  { key:'prog-content',    label:'Programme & sessions' },
+  { key:'quota-toggle',    label:'Quota ?',              hidden:() => !isCaseAB() },
+  { key:'quota-content',   label:'Quotas',               hidden:() => !quotaActive() },
+  { key:'waitlist',        label:'Liste d’attente',      hidden:() => !quotaActive() },
+  { key:'speakers-toggle', label:'Intervenants ?' },
+  { key:'speakers-content',label:'Intervenants',         hidden:() => !state.hasSpeakers },
   { key:'forms',   label:'Formulaires' },
   { key:'web',     label:'Page web' },
   { key:'comms',   label:'Communications' },
   { key:'survey',  label:'Enquête' },
   { key:'publish', label:'Publication' },
 ];
-/* Steps actually shown, given current mode */
 function wizardSteps(){
-  return ALL_STEPS.filter(s => !(state.eventMode==='simple' && s.simpleHidden));
+  return ALL_STEPS.filter(s => !(s.hidden && s.hidden()));
+}
+
+/* ============================================================
+   Programme & sessions — arbre de décision à 4 cas
+
+     Est-ce un programme ?  NON → cas A (une seule session)
+                             OUI → Type ?
+                                     ODJ informatif        → cas B
+                                     Multi-sessions → Groupe de sessions ?
+                                                          SANS → cas C
+                                                          AVEC → cas D
+
+   Le cas se DÉRIVE de hasProgram/programType/useGroups (jamais stocké tel
+   quel) pour ne jamais désynchroniser. Le quota est facultatif en A/B
+   (state.quotaEnabled), obligatoire en C (par session) et D (par parcours).
+   state.sessions et state.parcours restent la source de vérité unique :
+   changer de cas ne supprime jamais les données déjà saisies, seule leur
+   présentation change — voir sessionsEditor()/parcoursEditor().
+   ============================================================ */
+
+function programCase(){
+  if (!state.hasProgram) return 'A';
+  if (state.programType === 'odj') return 'B';
+  return state.useGroups ? 'D' : 'C';
+}
+function isCaseAB(){ const c = programCase(); return c==='A' || c==='B'; }
+function quotaActive(){
+  const c = programCase();
+  return (c==='C' || c==='D') ? true : !!state.quotaEnabled;
+}
+
+/* regroupe state.sessions par parcours, en conservant l'index réel dans state.sessions
+   (nécessaire pour que les handlers d'édition ciblent la bonne entrée) */
+function sessionsByParcours(){
+  const withIndex = state.sessions.map((s,i)=>({ s, i }));
+  const groups = state.parcours.map(p => ({
+    ...p,
+    entries: withIndex.filter(e => e.s.parcoursId === p.id),
+  }));
+  const orphans = withIndex.filter(e => !e.s.parcoursId);
+  return { groups, orphans };
+}
+
+/* une ligne de session éditable ; colonnes affichées selon le contexte.
+   Le quota ne se saisit plus ici : en C/D il vit dans l'étape Quotas dédiée. */
+function sessionRow(s, i, { showParcoursSelect=false } = {}){
+  const cols = ['74px', '1fr', '150px', showParcoursSelect?'170px':'', '40px'].filter(Boolean).join(' ');
+  return `
+    <div class="session-row" style="grid-template-columns:${cols}">
+      <input class="inp" value="${s.horaire}" style="padding:8px 10px;font-size:12.5px" oninput="state.sessions[${i}].horaire=this.value;render()">
+      <input class="inp" value="${s.titre}" style="padding:8px 10px;font-size:12.5px;font-weight:600" oninput="state.sessions[${i}].titre=this.value;render()">
+      <input class="inp" value="${s.salle}" style="padding:8px 10px;font-size:12.5px" oninput="state.sessions[${i}].salle=this.value;render()">
+      ${showParcoursSelect ? `<select class="sel" style="padding:8px 10px;font-size:12.5px" onchange="state.sessions[${i}].parcoursId=this.value||null;render()">
+        <option value="">— Sans parcours —</option>
+        ${state.parcours.map(p=>`<option value="${p.id}" ${s.parcoursId===p.id?'selected':''}>${p.name}</option>`).join('')}
+      </select>` : ''}
+      <button class="icon-btn" onclick="state.sessions.splice(${i},1);render()">${icon('trash')}</button>
+    </div>`;
+}
+
+/* cas A : une seule session, ni ajout ni suppression possibles */
+function singleSessionEditor(){
+  if (!state.sessions.length) state.sessions.push({ id:'s'+Date.now(), horaire:'', titre:'Nouvelle session', salle:'À définir', quota:null, parcoursId:null });
+  const s = state.sessions[0];
+  const i = 0;
+  return `
+    <div class="row2" style="margin-top:4px">
+      <div class="field"><label>Nom de la session</label><input class="inp" value="${s.titre}" oninput="state.sessions[${i}].titre=this.value;render()"></div>
+      <div class="field"><label>Salle / lieu</label><input class="inp" value="${s.salle}" oninput="state.sessions[${i}].salle=this.value;render()"></div>
+    </div>`;
+}
+
+/* cas B : agenda multi-lignes, en lecture seule côté invité, sans quota par ligne */
+function agendaEditor(){
+  return `
+    ${protoNote('Côté invité, cet agenda s’affiche en lecture seule : il consulte le programme mais réserve l’événement en un clic, sans choisir de créneau.')}
+    <div style="margin-top:16px">
+      ${state.sessions.map((s,i)=>sessionRow(s,i)).join('')}
+      <button class="add-line" onclick="state.sessions.push({id:'s'+Date.now(),horaire:'--h--',titre:'Nouvel item',salle:'À définir',quota:null,parcoursId:null});render()">${icon('plus')} Ajouter un item à l’agenda</button>
+    </div>`;
+}
+
+/* cas C : sessions indépendantes, quota saisi dans l'étape Quotas dédiée */
+function sessionsEditor(){
+  return `
+    <div style="margin-top:4px">
+      ${state.sessions.map((s,i)=>sessionRow(s,i)).join('')}
+      <button class="add-line" onclick="state.sessions.push({id:'s'+Date.now(),horaire:'--h--',titre:'Nouvelle session',salle:'À définir',quota:50,parcoursId:null});render()">${icon('plus')} Ajouter une session</button>
+    </div>`;
+}
+
+/* cas D : parcours (chacun listant ses sessions) + sessions restées indépendantes.
+   Le quota vit sur le parcours (étape Quotas dédiée), plus sur la session. */
+function parcoursEditor(){
+  const { groups, orphans } = sessionsByParcours();
+  return `
+    ${protoNote('Choisir un parcours inscrit automatiquement l’invité à toutes les sessions qui le composent. Une session reste indépendante tant qu’elle n’est rattachée à aucun parcours.')}
+    <div style="margin-top:16px">
+      ${groups.map(g=>`
+        <div class="group-card">
+          <div class="grp-head">
+            <input class="inp grp-title" value="${g.name}" oninput="(state.parcours.find(p=>p.id==='${g.id}')||{}).name=this.value;render()">
+            <button class="icon-btn" onclick="state.parcours=state.parcours.filter(p=>p.id!=='${g.id}');state.sessions.forEach(s=>{if(s.parcoursId==='${g.id}')s.parcoursId=null});render()">${icon('trash')}</button>
+          </div>
+          ${g.entries.map(e=>sessionRow(e.s,e.i,{showParcoursSelect:true})).join('') || `<div class="s-sub" style="padding:6px 2px">Aucune session — assignez-en une ci-dessous.</div>`}
+          <button class="add-line" onclick="state.sessions.push({id:'s'+Date.now(),horaire:'--h--',titre:'Nouvelle session',salle:'À définir',quota:null,parcoursId:'${g.id}'});render()">${icon('plus')} Ajouter une session à ce parcours</button>
+        </div>`).join('')}
+      <button class="add-line" onclick="state.parcours.push({id:'p'+Date.now(),name:'Nouveau parcours',quota:50});render()">${icon('plus')} Ajouter un parcours</button>
+
+      <div class="sec-title" style="margin-top:22px">Sessions indépendantes</div>
+      ${orphans.map(e=>sessionRow(e.s,e.i,{showParcoursSelect:true})).join('') || `<div class="s-sub" style="margin-bottom:10px">Aucune — toutes les sessions appartiennent à un parcours.</div>`}
+      <button class="add-line" onclick="state.sessions.push({id:'s'+Date.now(),horaire:'--h--',titre:'Nouvelle session',salle:'À définir',quota:null,parcoursId:null});render()">${icon('plus')} Ajouter une session indépendante</button>
+    </div>`;
+}
+
+/* ---------- normalise le modèle en une structure commune, consommée telle
+   quelle par Formulaires, Page web et Communications (hors périmètre de la
+   restructuration : leur code n'est pas modifié, seul cet adaptateur l'est) ---------- */
+function programModel(){
+  const c = programCase();
+  const hasQuota = quotaActive();
+  const hasTime = true;
+  const pickSessions = (c==='C' || c==='D');
+
+  if (c === 'D') {
+    const groups = state.parcours.map(p=>({
+      name: p.name,
+      quota: hasQuota ? (+p.quota||0) : null,
+      sessions: state.sessions.filter(s=>s.parcoursId===p.id).map(s=>({ name:s.titre, room:s.salle, time:s.horaire })),
+    }));
+    const orphanItems = state.sessions.filter(s=>!s.parcoursId).map(s=>({ name:s.titre, room:s.salle, time:s.horaire }));
+    return {
+      hasQuota, hasTime, grouped:true, pickSessions,
+      groups, items: groups.flatMap(g=>g.sessions).concat(orphanItems),
+      totalQuota: hasQuota ? groups.reduce((a,g)=>a+(+g.quota||0),0) : null,
+    };
+  }
+
+  const items = state.sessions.map(s=>({
+    name:s.titre, room:s.salle, time:s.horaire,
+    quota: (c==='C' && hasQuota) ? s.quota : null,
+  }));
+  return {
+    hasQuota: hasQuota && c==='C', hasTime, grouped:false, items, pickSessions,
+    totalQuota: (c==='A'||c==='B')
+      ? (hasQuota ? state.eventCapacity : null)
+      : (hasQuota ? items.reduce((a,s)=>a+(+s.quota||0),0) : null),
+  };
+}
+
+/* ---------- Intervenants : options de rattachement selon le cas ---------- */
+function attachOptions(){
+  const c = programCase();
+  if (c === 'A') return [{ value:'global:*', label:'Programme entier' }, ...state.sessions.map(s=>({ value:'session:'+s.id, label:s.titre }))];
+  if (c === 'B') return [{ value:'global:*', label:'Programme entier' }, ...state.sessions.map(s=>({ value:'session:'+s.id, label:s.titre }))];
+  if (c === 'C') return state.sessions.map(s=>({ value:'session:'+s.id, label:s.titre }));
+  return [ // cas D : un groupe entier, ou une session précise
+    ...state.parcours.map(p=>({ value:'group:'+p.id, label:'Parcours — '+p.name })),
+    ...state.sessions.map(s=>({ value:'session:'+s.id, label:'Session — '+s.titre })),
+  ];
+}
+function attachLabel(attachType, attachId){
+  if (attachType === 'global') return 'Programme entier';
+  if (attachType === 'group') return 'Parcours — ' + (state.parcours.find(p=>p.id===attachId)?.name || '?');
+  return state.sessions.find(s=>s.id===attachId)?.titre || '?';
+}
+function addSpeakerFromDraft(){
+  const { name, role, attach } = state.speakerDraft;
+  if (!name || !attach) return;
+  const [attachType, attachId] = attach.split(':');
+  state.speakers.push({
+    name, role,
+    attachType, attachId: attachType==='global' ? null : attachId,
+    session: attachLabel(attachType, attachId),
+  });
+  state.speakerFormOpen = false;
+  render();
+}
+
+/* ---------- Liste d'attente : aperçus réels (pas d'envoi/publication réelle) ---------- */
+function waitlistEmailPreview(){
+  return `
+  <div class="preview-page" style="max-width:480px">
+    <div style="padding:18px 24px;border-bottom:1px solid #eeede6">${logoMark('ph-logo')}</div>
+    <div style="padding:22px 24px 4px;font-size:17px;font-weight:700">Une place s’est libérée !</div>
+    <div style="padding:8px 24px 0;font-size:13px;color:var(--muted-dark)">Bonne nouvelle : une place vient de se libérer pour <b>${state.eventInfo.name}</b>. Les inscriptions sont ouvertes aux membres de la liste d’attente, premier arrivé premier servi.</div>
+    <div style="padding:22px 24px"><button class="btn btn-acid">S’inscrire maintenant</button></div>
+    <div style="padding:16px 24px;border-top:1px solid #eeede6;font-size:11px;color:var(--muted-dark)">Huddle · Cet e-mail est envoyé à tous les membres de la liste d’attente dès qu’une place se libère.</div>
+  </div>`;
+}
+function waitlistLandingPreview(){
+  return `
+  <div class="preview-page" style="max-width:480px">
+    <div style="background:var(--ink);color:var(--paper);padding:34px 30px">
+      <div style="font-size:11px;letter-spacing:.5px;color:var(--acid);font-weight:600;text-transform:uppercase">${state.eventType} · ${fmtDate(state.eventInfo.date)}</div>
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.5px;margin-top:8px">Navré, cet événement est complet</div>
+      <div style="color:var(--muted);margin-top:8px;max-width:380px;font-size:13px">Toutes les places pour ${state.eventInfo.name} ont été attribuées. Les inscriptions sont closes.</div>
+    </div>
+    <div style="padding:22px 24px;font-size:13px;color:var(--muted-dark)">Vous pouvez contacter l’organisateur pour être averti si une prochaine édition est programmée.</div>
+  </div>`;
 }
 
 /* Steps grouped into 3 collapsible phase cards for the sidebar nav */
 const PHASES = [
-  { key:'setup',      label:'Je configure',                    icon:'settings', steps:['format','info','program','speakers','segment','quotas'] },
+  { key:'setup',      label:'Je configure',                    icon:'settings', steps:['format','info','segment','prog-has','prog-type','prog-groups','prog-content','quota-toggle','quota-content','waitlist','speakers-toggle','speakers-content'] },
   { key:'experience', label:'Je construis l’expérience invité', icon:'grid',     steps:['forms','web','comms'] },
   { key:'launch',     label:'Je diffuse et je mesure',          icon:'rocket',   steps:['publish','survey'] },
 ];
@@ -769,57 +1006,168 @@ const stepBody = {
     <div class="field"><label>Description <span class="hint">— visible sur la page web</span></label>
       <textarea class="inp" rows="3" oninput="state.eventInfo.description=this.value;render()">${state.eventInfo.description}</textarea></div>`,
 
-  program: () => `
-    <div class="pub-choice" style="margin-bottom:6px">
-      <div class="pub-opt ${state.eventMode==='simple'?'sel':''}" onclick="state.eventMode='simple';render()">
+  'prog-has': () => `
+    <div class="pub-choice">
+      <div class="pub-opt ${!state.hasProgram?'sel':''}" onclick="state.hasProgram=false;render()">
         <div class="po-icon">${icon('calendar')}</div>
-        <div class="po-title">Événement simple</div>
-        <div class="po-desc">Une seule session, sans quotas ni intervenants à gérer. Idéal pour un petit-déjeuner ou une table ronde.</div>
+        <div class="po-title">Non, une seule session</div>
+        <div class="po-desc">Aucun programme : un seul créneau pour tous les invités.</div>
       </div>
-      <div class="pub-opt ${state.eventMode==='multi'?'sel':''}" onclick="state.eventMode='multi';render()">
+      <div class="pub-opt ${state.hasProgram?'sel':''}" onclick="state.hasProgram=true;render()">
         <div class="po-icon">${icon('grid')}</div>
-        <div class="po-title">Programme multi-sessions</div>
-        <div class="po-desc">Plusieurs sessions, salles, quotas et intervenants. Pour une conférence ou un salon.</div>
+        <div class="po-title">Oui, il y a un programme</div>
+        <div class="po-desc">Plusieurs interventions ou sessions à organiser.</div>
       </div>
-    </div>
-    ${state.eventMode==='simple' ? `
-      <div style="margin-top:22px" class="field"><label>Nom de la session</label><input class="inp" value="Sommet Data & IA 2026"></div>
-      <div class="row2">
-        <div class="field"><label>Salle / lieu</label><input class="inp" value="Grand Auditorium"></div>
-        <div class="field"><label>Places <span class="hint">— laisser vide pour illimité</span></label><input class="inp" type="number" placeholder="illimité"></div>
-      </div>
-      ${protoNote('En mode simple, les étapes Intervenants et Quotas sont masquées. Vous pourrez toujours passer en multi-sessions plus tard.')}
-    ` : `
-    ${protoNote('Chaque session a sa propre salle et son propre quota. L’invité pourra s’inscrire à une ou plusieurs sessions selon le réglage ci-dessous.')}
-    <div class="toggle-row" style="border-top:1px solid #eeede6;padding-top:0;border-bottom:1px solid #eeede6">
-      <div><div class="tr-title">Inscription multi-sessions</div>
-      <div class="tr-desc">Autoriser un invité à réserver plusieurs sessions. Désactivé = une seule session par invité.</div></div>
-      <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
-    </div>
-    <div style="margin-top:20px">
-      ${state.sessions.map((s,i)=>`
-        <div class="session-row">
-          <div><div class="s-name">${s.name}</div><div class="s-sub">${icon('mapPin')} ${s.room}</div></div>
-          <div><input class="inp" value="${s.room}" style="padding:8px 10px;font-size:12.5px"></div>
-          <div><input class="inp" type="number" value="${s.quota}" style="padding:8px 10px;font-size:12.5px" title="Quota"></div>
-          <button class="icon-btn" onclick="state.sessions.splice(${i},1);render()">${icon('trash')}</button>
-        </div>`).join('')}
-      <button class="add-line" onclick="state.sessions.push({name:'Nouvelle session',room:'À définir',quota:50});render()">${icon('plus')} Ajouter une session</button>
-    </div>`}`,
+    </div>`,
 
-  speakers: () => `
-    ${protoNote('Les intervenants peuvent être rattachés à une ou plusieurs sessions du programme.')}
-    ${state.speakers.map((sp,i)=>`
-      <div class="seg-card">
-        <div class="seg-name"><span class="mini-avatar">${sp.name.split(' ').map(x=>x[0]).join('')}</span>
-          <div><div>${sp.name}</div><div style="font-size:12px;color:var(--muted-dark);font-weight:400">${sp.role}</div></div>
+  'prog-type': () => `
+    <div class="pub-choice">
+      <div class="pub-opt ${state.programType==='odj'?'sel':''}" onclick="state.programType='odj';render()">
+        <div class="po-icon">${icon('table')}</div>
+        <div class="po-title">Ordre du jour informatif</div>
+        <div class="po-desc">L’invité consulte le programme mais ne réserve pas de créneau — inscription globale à l’événement.</div>
+      </div>
+      <div class="pub-opt ${state.programType==='multi'?'sel':''}" onclick="state.programType='multi';render()">
+        <div class="po-icon">${icon('layers')}</div>
+        <div class="po-title">Multi-sessions</div>
+        <div class="po-desc">Des créneaux indépendants auxquels l’invité s’inscrit individuellement.</div>
+      </div>
+    </div>`,
+
+  'prog-groups': () => `
+    <div class="pub-choice">
+      <div class="pub-opt ${!state.useGroups?'sel':''}" onclick="state.useGroups=false;render()">
+        <div class="po-icon">${icon('grid')}</div>
+        <div class="po-title">Sans groupe</div>
+        <div class="po-desc">Sessions indépendantes : l’invité choisit librement parmi toutes les sessions.</div>
+      </div>
+      <div class="pub-opt ${state.useGroups?'sel':''}" onclick="state.useGroups=true;render()">
+        <div class="po-icon">${icon('layers')}</div>
+        <div class="po-title">Avec groupe</div>
+        <div class="po-desc">Sessions groupées en parcours : choisir un parcours inscrit à toutes ses sessions.</div>
+      </div>
+    </div>`,
+
+  'prog-content': () => {
+    const c = programCase();
+    if (c==='A') return singleSessionEditor();
+    if (c==='B') return agendaEditor();
+    if (c==='D') return parcoursEditor();
+    return sessionsEditor();
+  },
+
+  'quota-toggle': () => `
+    <div class="pub-choice">
+      <div class="pub-opt ${!state.quotaEnabled?'sel':''}" onclick="state.quotaEnabled=false;render()">
+        <div class="po-icon">${icon('info')}</div>
+        <div class="po-title">Pas de quota</div>
+        <div class="po-desc">Nombre de places illimité, aucune capacité à surveiller.</div>
+      </div>
+      <div class="pub-opt ${state.quotaEnabled?'sel':''}" onclick="state.quotaEnabled=true;render()">
+        <div class="po-icon">${icon('chart')}</div>
+        <div class="po-title">Quota</div>
+        <div class="po-desc">Limiter le nombre total de places pour l’événement.</div>
+      </div>
+    </div>`,
+
+  'quota-content': () => {
+    const c = programCase();
+    if (c==='A' || c==='B') return `
+      <div class="field"><label>Capacité globale de l’événement</label>
+        <div class="row2"><input class="inp" type="number" value="${state.eventCapacity??''}" oninput="state.eventCapacity=this.value?+this.value:null;render()"><div style="display:flex;align-items:center;color:var(--muted-dark);font-size:13px">places disponibles</div></div>
+      </div>`;
+    if (c==='D') return `
+      <div class="sec-title" style="margin-bottom:10px">Quota par parcours</div>
+      ${protoNote('Chaque parcours a sa propre jauge, définie directement (indépendante des sessions qui le composent).')}
+      <div style="margin-top:14px">
+      ${state.parcours.map((p,i)=>`
+        <div class="toggle-row">
+          <div><div class="tr-title">${p.name}</div><div class="tr-desc">${state.sessions.filter(s=>s.parcoursId===p.id).map(s=>s.titre).join(' · ')||'Aucune session'}</div></div>
+          <div style="display:flex;align-items:center;gap:10px"><input class="inp" type="number" value="${p.quota??''}" style="width:90px;padding:8px 10px" oninput="state.parcours[${i}].quota=this.value?+this.value:null;render()"><span style="font-size:12.5px;color:var(--muted-dark)">places</span></div>
+        </div>`).join('')}
+      </div>`;
+    // cas C
+    return `
+      <div class="sec-title" style="margin-bottom:10px">Quota par session</div>
+      ${state.sessions.map((s,i)=>`
+        <div class="toggle-row">
+          <div><div class="tr-title">${s.titre}</div><div class="tr-desc">${icon('mapPin')} ${s.salle}</div></div>
+          <div style="display:flex;align-items:center;gap:10px"><input class="inp" type="number" value="${s.quota??''}" style="width:90px;padding:8px 10px" oninput="state.sessions[${i}].quota=this.value?+this.value:null;render()"><span style="font-size:12.5px;color:var(--muted-dark)">places</span></div>
+        </div>`).join('')}`;
+  },
+
+  waitlist: () => {
+    if (state.waitlistPreview) {
+      const isLiberee = state.waitlistPreview==='liberee';
+      return `
+        <button class="btn btn-ghost" style="margin-bottom:16px" onclick="state.waitlistPreview=null;render()">${icon('arrowLeft')} Retour</button>
+        <div class="sec-title" style="margin-bottom:10px">${isLiberee?'Aperçu de l’e-mail « Une place s’est libérée »':'Aperçu de la page « Événement complet »'}</div>
+        ${isLiberee?waitlistEmailPreview():waitlistLandingPreview()}`;
+    }
+    return `
+      <div class="pub-choice">
+        <div class="pub-opt ${!state.waitlistEnabled?'sel':''}" onclick="state.waitlistEnabled=false;render()">
+          <div class="po-icon">${icon('info')}</div>
+          <div class="po-title">Pas de liste d’attente</div>
+          <div class="po-desc">À quota atteint, les inscriptions se ferment et une page « Événement complet » s’affiche.</div>
         </div>
-        <div style="display:flex;align-items:center;gap:14px">
-          <span class="tag grey">${sp.session}</span>
-          <button class="icon-btn" onclick="state.speakers.splice(${i},1);render()">${icon('trash')}</button>
+        <div class="pub-opt ${state.waitlistEnabled?'sel':''}" onclick="state.waitlistEnabled=true;render()">
+          <div class="po-icon">${icon('users')}</div>
+          <div class="po-title">Liste d’attente</div>
+          <div class="po-desc">À quota atteint, les nouvelles demandes rejoignent une liste d’attente.</div>
         </div>
-      </div>`).join('')}
-    <button class="add-line" onclick="alert('Prototype : ajout d’un intervenant')">${icon('plus')} Ajouter un intervenant</button>`,
+      </div>
+      ${state.waitlistEnabled
+        ? protoNote('Quand un inscrit se désiste, un e-mail « une place s’est libérée » est envoyé à tous les membres de la liste d’attente, avec un lien vers le formulaire d’inscription. La place revient au premier qui s’inscrit — premier arrivé, premier servi.')
+        : protoNote('Dès que le quota est atteint, les inscriptions se ferment automatiquement et les nouveaux visiteurs voient une page « Navré, cet événement est complet ».')}
+      <button class="btn btn-ghost" style="margin-top:14px" onclick="state.waitlistPreview='${state.waitlistEnabled?'liberee':'complet'}';render()">${icon('send')} Aperçu ${state.waitlistEnabled?'de l’e-mail':'de la page'}</button>`;
+  },
+
+  'speakers-toggle': () => `
+    <div class="pub-choice">
+      <div class="pub-opt ${!state.hasSpeakers?'sel':''}" onclick="state.hasSpeakers=false;render()">
+        <div class="po-icon">${icon('info')}</div>
+        <div class="po-title">Non</div>
+        <div class="po-desc">Aucun intervenant à mettre en avant.</div>
+      </div>
+      <div class="pub-opt ${state.hasSpeakers?'sel':''}" onclick="state.hasSpeakers=true;render()">
+        <div class="po-icon">${icon('users')}</div>
+        <div class="po-title">Oui, il y a des intervenants</div>
+        <div class="po-desc">Mettez en avant les personnes qui interviennent.</div>
+      </div>
+    </div>`,
+
+  'speakers-content': () => {
+    if (state.speakerFormOpen) {
+      const opts = attachOptions();
+      return `
+        <button class="btn btn-ghost" style="margin-bottom:16px" onclick="state.speakerFormOpen=false;render()">${icon('arrowLeft')} Annuler</button>
+        <div class="row2">
+          <div class="field"><label>Nom complet</label><input class="inp" value="${state.speakerDraft.name}" oninput="state.speakerDraft.name=this.value;render()" placeholder="Jeanne Dupont"></div>
+          <div class="field"><label>Rôle / société</label><input class="inp" value="${state.speakerDraft.role}" oninput="state.speakerDraft.role=this.value;render()" placeholder="CTO — Acme Corp"></div>
+        </div>
+        <div class="field"><label>Rattaché à</label>
+          <select class="sel" onchange="state.speakerDraft.attach=this.value;render()">
+            <option value="">— Choisir —</option>
+            ${opts.map(o=>`<option value="${o.value}" ${state.speakerDraft.attach===o.value?'selected':''}>${o.label}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-primary" style="margin-top:8px" ${(!state.speakerDraft.name||!state.speakerDraft.attach)?'disabled':''} onclick="addSpeakerFromDraft()">${icon('check')} Enregistrer l’intervenant</button>`;
+    }
+    return `
+      ${protoNote('Les intervenants sont rattachés au programme, à une session, ou à un parcours selon la configuration choisie.')}
+      ${state.speakers.map((sp,i)=>`
+        <div class="seg-card">
+          <div class="seg-name"><span class="mini-avatar">${sp.name.split(' ').map(x=>x[0]).join('')}</span>
+            <div><div>${sp.name}</div><div style="font-size:12px;color:var(--muted-dark);font-weight:400">${sp.role}</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <span class="tag grey">${sp.session}</span>
+            <button class="icon-btn" onclick="state.speakers.splice(${i},1);render()">${icon('trash')}</button>
+          </div>
+        </div>`).join('')}
+      <button class="add-line" onclick="state.speakerDraft={name:'',role:'',attach:''};state.speakerFormOpen=true;render()">${icon('plus')} Ajouter un intervenant</button>`;
+  },
 
   segment: () => state.segmentBuilder ? segmentBuilderView() : `
     ${protoNote('Ciblez les bonnes audiences. Les segments sont construits à partir des tables et champs de votre CRM Dynamics 365 / Dataverse.')}
@@ -875,21 +1223,6 @@ const stepBody = {
     <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap">
       <button class="add-line" style="max-width:280px" onclick="alert('Prototype : ajout d’une étape de communication')">${icon('plus')} Ajouter un message</button>
       <button class="add-line" style="max-width:280px" onclick="state.builderOpen='email';render()">${icon('layers')} Personnaliser le modèle d’e-mail</button>
-    </div>`,
-
-  quotas: () => `
-    <div class="field"><label>Capacité globale de l’événement</label>
-      <div class="row2"><input class="inp" type="number" value="400"><div style="display:flex;align-items:center;color:var(--muted-dark);font-size:13px">places disponibles</div></div>
-    </div>
-    <div class="sec-title" style="margin-top:20px">Quotas par session</div>
-    ${state.sessions.map(s=>`
-      <div class="toggle-row">
-        <div><div class="tr-title">${s.name}</div><div class="tr-desc">${icon('mapPin')} ${s.room}</div></div>
-        <div style="display:flex;align-items:center;gap:10px"><input class="inp" type="number" value="${s.quota}" style="width:90px;padding:8px 10px"><span style="font-size:12.5px;color:var(--muted-dark)">places</span></div>
-      </div>`).join('')}
-    <div class="card dark" style="margin-top:20px">
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:8px"><span style="color:var(--muted)">Somme des sessions</span><b>${state.sessions.reduce((a,s)=>a+ +s.quota,0)} places</b></div>
-      <div class="bar"><i style="width:${Math.min(100,state.sessions.reduce((a,s)=>a+ +s.quota,0)/400*100)}%"></i></div>
     </div>`,
 
   survey: () => `
@@ -980,7 +1313,6 @@ function builderShell(blocksKey, previewFn){
 
 /* ---- page builder (used by the wizard's "Page web" step) ---- */
 function pagePreview(blocks){
-  const totalQuota = state.sessions.reduce((a,s)=>a+ +s.quota,0);
   const renderers = {
     hero: () => `
       <div style="background:var(--ink);color:var(--paper);padding:34px 30px">
@@ -989,21 +1321,43 @@ function pagePreview(blocks){
         <div style="color:var(--muted);margin-top:8px;max-width:420px;font-size:13px">${state.eventInfo.description}</div>
         <button class="btn btn-acid" style="margin-top:18px">S’inscrire</button>
       </div>`,
-    infos: () => `
+    infos: () => {
+      const m = programModel();
+      const places = m.totalQuota != null ? m.totalQuota : state.eventCapacity;
+      const countLabel = m.grouped ? 'Parcours' : 'Sessions';
+      const count = m.grouped ? m.groups.length : m.items.length;
+      return `
       <div style="padding:20px 30px;display:flex;gap:26px;flex-wrap:wrap">
         <div><div style="font-size:12px;color:var(--muted-dark)">Lieu</div><b style="font-size:13.5px">${state.eventInfo.lieu}</b></div>
-        <div><div style="font-size:12px;color:var(--muted-dark)">Places</div><b style="font-size:13.5px">${totalQuota}</b></div>
-        <div><div style="font-size:12px;color:var(--muted-dark)">Sessions</div><b style="font-size:13.5px">${state.sessions.length}</b></div>
-      </div>`,
-    programme: () => `
+        <div><div style="font-size:12px;color:var(--muted-dark)">Places</div><b style="font-size:13.5px">${places}</b></div>
+        <div><div style="font-size:12px;color:var(--muted-dark)">${countLabel}</div><b style="font-size:13.5px">${count}</b></div>
+      </div>`;
+    },
+    programme: () => {
+      const m = programModel();
+      if (m.grouped) return `
+        <div style="padding:4px 30px 22px">
+          <div class="sec-title">Programme — parcours au choix</div>
+          ${m.groups.map(g=>`
+            <div class="session-row" style="grid-template-columns:1fr auto;background:#f2f1ea;margin-bottom:4px">
+              <div class="s-name">${g.name}</div>
+              <div style="font-size:12px;color:var(--muted-dark)">${g.quota} places</div>
+            </div>
+            ${g.sessions.map(s=>`
+              <div class="session-row" style="grid-template-columns:1fr auto;margin-left:18px;background:#fff">
+                <div><div class="s-name" style="font-weight:500">${s.name}</div><div class="s-sub">${icon('mapPin')} ${s.room}</div></div>
+              </div>`).join('')}`).join('')}
+        </div>`;
+      return `
       <div style="padding:4px 30px 22px">
         <div class="sec-title">Programme</div>
-        ${state.sessions.map(s=>`
+        ${m.items.map(s=>`
           <div class="session-row" style="grid-template-columns:1fr auto">
-            <div><div class="s-name">${s.name}</div><div class="s-sub">${icon('mapPin')} ${s.room}</div></div>
-            <div style="font-size:12px;color:var(--muted-dark)">${s.quota} places</div>
+            <div><div class="s-name">${s.name}</div><div class="s-sub">${icon('mapPin')} ${s.room}${m.hasTime&&s.time?' · '+s.time:''}</div></div>
+            <div style="font-size:12px;color:var(--muted-dark)">${m.hasQuota ? (s.quota||'illimité')+' places' : 'Informatif'}</div>
           </div>`).join('')}
-      </div>`,
+      </div>`;
+    },
     intervenants: () => `
       <div style="padding:4px 30px 22px">
         <div class="sec-title">Intervenants</div>
@@ -1038,7 +1392,16 @@ function emailPreview(blocks){
     header: () => `<div style="padding:18px 24px;border-bottom:1px solid #eeede6">${logoMark('ph-logo')}</div>`,
     title: () => `<div style="padding:22px 24px 4px;font-size:19px;font-weight:700">${state.eventInfo.name}</div>`,
     description: () => `<div style="padding:6px 24px 0;font-size:13px;color:var(--muted-dark)">${state.eventInfo.description}</div>`,
-    programme: () => `<div style="padding:16px 24px 0"><div class="sec-title" style="margin-bottom:8px">Programme</div>${state.sessions.map(s=>`<div class="s-sub" style="margin-bottom:4px">• ${s.name} — ${s.room}</div>`).join('')}</div>`,
+    programme: () => {
+      const m = programModel();
+      const rows = m.grouped
+        ? m.groups.flatMap(g => [
+            `<div class="s-sub" style="margin-bottom:2px;font-weight:600">${g.name}</div>`,
+            ...g.sessions.map(s => `<div class="s-sub" style="margin:0 0 4px 14px">– ${s.name}</div>`),
+          ])
+        : m.items.map(s => `<div class="s-sub" style="margin-bottom:4px">• ${s.name} — ${s.room}</div>`);
+      return `<div style="padding:16px 24px 0"><div class="sec-title" style="margin-bottom:8px">Programme</div>${rows.join('')}</div>`;
+    },
     intervenants: () => `<div style="padding:16px 24px 0"><div class="sec-title" style="margin-bottom:8px">Intervenants</div>${state.speakers.map(sp=>`<div class="s-sub" style="margin-bottom:4px">• ${sp.name} — ${sp.role}</div>`).join('')}</div>`,
     lieu: () => `<div style="padding:16px 24px 0;font-size:13px;color:var(--muted-dark)">${icon('mapPin')} ${state.eventInfo.lieu} · ${fmtDate(state.eventInfo.date)}</div>`,
     cta: () => `<div style="padding:22px 24px"><button class="btn btn-acid">S’inscrire</button></div>`,
@@ -1055,7 +1418,13 @@ function formPreview(blocks){
     email:    () => `<div class="field"><label>E-mail</label><input class="inp" disabled placeholder="jeanne.dupont@entreprise.com"></div>`,
     company:  () => `<div class="field"><label>Société</label><input class="inp" disabled placeholder="Acme Corp"></div>`,
     role:     () => `<div class="field"><label>Fonction</label><input class="inp" disabled placeholder="Directrice Marketing"></div>`,
-    sessions: () => `<div class="field"><label>Choix de sessions</label><select class="sel" disabled><option>${state.sessions.map(s=>s.name).join(', ')}</option></select></div>`,
+    sessions: () => {
+      const m = programModel();
+      if (!m.pickSessions) return `<div class="field"><label>Programme</label><input class="inp" disabled value="Inscription globale — l’agenda est consultable sur la page de l’événement"></div>`;
+      const label = m.grouped ? 'Choix du parcours' : 'Choix de sessions (plusieurs possibles)';
+      const options = m.grouped ? m.groups.map(g=>g.name) : m.items.map(s=>s.name);
+      return `<div class="field"><label>${label}</label><select class="sel" disabled><option>${options.join(', ')}</option></select></div>`;
+    },
     phone:    () => `<div class="field"><label>Téléphone</label><input class="inp" disabled placeholder="+33 6 00 00 00 00"></div>`,
     message:  () => `<div class="field"><label>Message libre</label><textarea class="inp" disabled rows="2"></textarea></div>`,
   };
