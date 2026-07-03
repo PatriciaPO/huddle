@@ -1,0 +1,26 @@
+<mxfile host="app.diagrams.net" agent="Claude" version="24.0.0">
+  <diagram id="cas-C" name="Cas C">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="CAS C — Multi-sessions SANS groupe" style="text;html=1;fontSize=18;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="200" y="20" width="500" height="40" as="geometry"/></mxCell>
+        <mxCell id="d0" value="Programme ?" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontSize=13;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="320" y="90" width="200" height="50" as="geometry"/></mxCell>
+        <mxCell id="d1" value="Type ?" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontSize=13;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="320" y="200" width="200" height="50" as="geometry"/></mxCell>
+        <mxCell id="e1" value="OUI" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;fontSize=10;" edge="1" parent="1" source="d0" target="d1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="d2" value="Groupe de sessions ?" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontSize=13;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="320" y="310" width="200" height="50" as="geometry"/></mxCell>
+        <mxCell id="e2" value="multi-sessions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;fontSize=10;" edge="1" parent="1" source="d1" target="d2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="leaf" value="CAS C&#10;Multi-sessions — sans groupe de sessions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;fontSize=13;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="300" y="420" width="240" height="60" as="geometry"/></mxCell>
+        <mxCell id="eleaf" value="SANS" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;fontSize=10;" edge="1" parent="1" source="d2" target="leaf"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="quota" value="QUOTA&#10;Obligatoire — quota défini PAR SESSION (à définir)" style="shape=note;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;align=left;verticalAlign=top;fontSize=11;spacingLeft=8;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="120" y="540" width="320" height="70" as="geometry"/></mxCell>
+        <mxCell id="interv" value="INTERVENANTS&#10;Y a-t-il des intervenants ?&#10;Si OUI : associer chaque intervenant à une session." style="shape=note;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;align=left;verticalAlign=top;fontSize=11;spacingLeft=8;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="560" y="540" width="360" height="90" as="geometry"/></mxCell>
+        <mxCell id="attente" value="LISTE D'ATTENTE&#10;Quota actif → liste d'attente OUI / NON (voir règles ci-dessous)" style="shape=note;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;align=left;verticalAlign=top;fontSize=11;spacingLeft=8;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="120" y="660" width="320" height="80" as="geometry"/></mxCell>
+        <mxCell id="eq" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;fontSize=10;" edge="1" parent="1" source="leaf" target="quota"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ei" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;fontSize=10;" edge="1" parent="1" source="leaf" target="interv"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;fontSize=10;" edge="1" parent="1" source="quota" target="attente"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="wr" value="RÈGLES LISTE D'ATTENTE (si activée)&#10;&#10;NON : à quota atteint → clôture des inscriptions&#10;         → page « Navré, événement complet »&#10;&#10;OUI : à quota atteint → demandes en liste d'attente&#10;         Désistement → email « une place s'est libérée »&#10;         à tous les membres de la liste (+ lien formulaire)&#10;         Attribution : premier arrivé, premier servi" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;align=left;verticalAlign=top;fontSize=11;spacingLeft=8;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="120" y="780" width="460" height="180" as="geometry"/></mxCell>
+        <mxCell id="ewr" style="html=1;endArrow=none;dashed=1;strokeColor=#7F77DD;" edge="1" parent="1" source="attente" target="wr"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
