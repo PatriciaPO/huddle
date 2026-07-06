@@ -2110,8 +2110,6 @@ views.guests = () => {
     <div><div class="page-title">Invités & participants</div>
     <div class="page-sub">${scoped.length} contact${scoped.length>1?'s':''} · ${count('confirmed')} confirmés · ${count('pending')} en attente</div></div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="alert('Prototype : relance e-mail envoyée aux ${count('no-response')} invités sans réponse')">Relancer les sans-réponse</button>
-      <button class="btn btn-ghost" onclick="alert('Prototype : import CSV / segment')">Importer</button>
       <button class="btn btn-acid" onclick="alert('Prototype : ajout manuel d’un invité')">${icon('plus')} Ajouter</button>
     </div>
   </div>
