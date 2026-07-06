@@ -159,6 +159,24 @@
   /* section title */
   .sec-title{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted-dark);font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 
+  /* calendar (month grid) */
+  .cal-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .cal-toolbar .cal-title{font-size:16px;font-weight:700;letter-spacing:-.3px;text-transform:capitalize}
+  .cal-nav{display:flex;gap:6px}
+  .cal-nav button{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted-dark);border:1px solid var(--border-strong)}
+  .cal-nav button:hover{background:var(--surface-sunken);color:var(--ink)}
+  .cal-nav button svg{width:15px;height:15px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .cal-weekday{background:var(--surface-alt);padding:9px 0;text-align:center;font-size:11px;font-weight:600;color:var(--muted-dark);text-transform:uppercase;letter-spacing:.5px}
+  .cal-cell{background:var(--surface);min-height:96px;padding:8px;display:flex;flex-direction:column;gap:4px}
+  .cal-cell.out{background:var(--surface-alt)}
+  .cal-cell.today .cal-daynum{background:var(--brand);color:#fff}
+  .cal-daynum{font-size:11.5px;font-weight:600;color:var(--muted-dark);width:20px;height:20px;border-radius:50%;display:grid;place-items:center}
+  .cal-cell.out .cal-daynum{color:var(--muted)}
+  .cal-event-chip{background:var(--brand-tint);color:var(--brand);font-size:10.5px;font-weight:600;padding:3px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .cal-event-chip:hover{background:var(--brand);color:#fff}
+  @media(max-width:920px){.cal-cell{min-height:64px}}
+
   /* event list cards */
   .ev-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:.15s;cursor:pointer;display:flex;flex-direction:column;box-shadow:var(--shadow-2)}
   .ev-card:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--shadow-8)}
@@ -429,6 +447,8 @@ const state = {
     lieu: 'Station F — 5 Parvis Alan Turing, 75013 Paris',
     description: 'Une journée dédiée aux décideurs data : retours d’expérience, ateliers pratiques et networking.',
   },
+  calendarMonth: 2,          // vue calendrier — mois affiché (0=janvier), aligné sur le prochain événement
+  calendarYear: 2026,
   segmentBuilder: false,     // affiche l'écran de création de segment Dataverse
   segMemberType: 'Contact',
   pubMode: 'now',
@@ -501,6 +521,7 @@ const I = {
   grid:'<path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  calendarDays:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
   users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M3 12h18"/>',
   chart:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
@@ -546,8 +567,9 @@ const NAV = [
     { key:'reporting', label:'Reporting',       icon:'chart' },
   ]},
   { title:'Événements', items:[
-    { key:'events',  label:'Tous les événements',      icon:'calendar' },
-    { key:'create',  label:'Créer un événement',       icon:'plus' },
+    { key:'events',   label:'Tous les événements',      icon:'calendar' },
+    { key:'calendar', label:'Calendrier',                icon:'calendarDays' },
+    { key:'create',   label:'Créer un événement',       icon:'plus' },
     { key:'guests',  label:'Invités & participants',   icon:'users' },
     { key:'checkin', label:'Check-in',                 icon:'scan' },
   ]},
@@ -697,10 +719,10 @@ views.dashboard = () => `
 
 /* =================== EVENTS LIST + DETAIL =================== */
 const EVENTS = [
-  { type:'Conférence', name:'Sommet Data & IA 2026', date:'18 mars 2026', place:'Station F, Paris', reg:342, cap:400, status:['Publié','green'] },
-  { type:'Petit-déjeuner', name:'Petit-déj Partenaires Q2', date:'04 avr. 2026', place:'Bureau Lyon', reg:38, cap:50, status:['Publié','green'] },
-  { type:'Table ronde', name:'Table ronde RH & Talents', date:'22 avr. 2026', place:'En ligne', reg:120, cap:200, status:['Programmé','blue'] },
-  { type:'Salon', name:'Salon Industrie Connect', date:'12 juin 2026', place:'Paris Expo', reg:0, cap:900, status:['Brouillon','grey'] },
+  { type:'Conférence', name:'Sommet Data & IA 2026', date:'18 mars 2026', dateISO:'2026-03-18', place:'Station F, Paris', reg:342, cap:400, status:['Publié','green'] },
+  { type:'Petit-déjeuner', name:'Petit-déj Partenaires Q2', date:'04 avr. 2026', dateISO:'2026-04-04', place:'Bureau Lyon', reg:38, cap:50, status:['Publié','green'] },
+  { type:'Table ronde', name:'Table ronde RH & Talents', date:'22 avr. 2026', dateISO:'2026-04-22', place:'En ligne', reg:120, cap:200, status:['Programmé','blue'] },
+  { type:'Salon', name:'Salon Industrie Connect', date:'12 juin 2026', dateISO:'2026-06-12', place:'Paris Expo', reg:0, cap:900, status:['Brouillon','grey'] },
 ];
 
 views.events = () => `
@@ -734,6 +756,88 @@ views.events = () => `
       </div>`).join('')}
   </div>
 </div>`;
+
+/* =================== CALENDRIER =================== */
+const CAL_MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const CAL_WEEKDAYS_FR = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+
+function calEventsOn(year, month, day){
+  return EVENTS.filter(e=>{
+    const d = new Date(e.dateISO+'T00:00:00');
+    return d.getFullYear()===year && d.getMonth()===month && d.getDate()===day;
+  });
+}
+function calGridCells(year, month){
+  const firstWeekday = (new Date(year, month, 1).getDay()+6)%7; // lundi=0
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const cells = [];
+  for (let i=firstWeekday-1; i>=0; i--) cells.push({ day:daysInPrevMonth-i, out:true });
+  for (let d=1; d<=daysInMonth; d++) cells.push({ day:d, out:false });
+  let next = 1;
+  while (cells.length % 7 !== 0) cells.push({ day:next++, out:true });
+  return cells;
+}
+function calNav(delta){
+  let m = state.calendarMonth + delta;
+  let y = state.calendarYear;
+  if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+  state.calendarMonth = m; state.calendarYear = y;
+  render();
+}
+views.calendar = () => {
+  const year = state.calendarYear, month = state.calendarMonth;
+  const cells = calGridCells(year, month);
+  const upcoming = EVENTS.filter(e=>new Date(e.dateISO+'T00:00:00') >= new Date(year, month, 1))
+    .sort((a,b)=>new Date(a.dateISO)-new Date(b.dateISO));
+  return `
+<div class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-title">Calendrier</div>
+      <div class="page-sub">Vue d’ensemble de vos événements planifiés.</div>
+    </div>
+    <button class="btn btn-acid" onclick="go('create')">${icon('plus')} Nouvel événement</button>
+  </div>
+
+  <div class="grid" style="grid-template-columns:1.7fr 1fr;gap:16px;align-items:start">
+    <div class="card">
+      <div class="cal-toolbar">
+        <div class="cal-title">${CAL_MONTHS_FR[month]} ${year}</div>
+        <div class="cal-nav">
+          <button onclick="calNav(-1)">${icon('arrowLeft')}</button>
+          <button onclick="calNav(1)">${icon('arrowRight')}</button>
+        </div>
+      </div>
+      <div class="cal-grid">
+        ${CAL_WEEKDAYS_FR.map(w=>`<div class="cal-weekday">${w}</div>`).join('')}
+        ${cells.map(c=>{
+          if (c.out) return `<div class="cal-cell out"><div class="cal-daynum">${c.day}</div></div>`;
+          const dayEvents = calEventsOn(year, month, c.day);
+          return `
+          <div class="cal-cell">
+            <div class="cal-daynum">${c.day}</div>
+            ${dayEvents.map(e=>`<button class="cal-event-chip" onclick="alert('Prototype : ouverture de la fiche « ${e.name} »')">${e.name}</button>`).join('')}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">Prochains événements</div>
+      ${upcoming.length ? upcoming.map(e=>`
+        <div class="feed-item" style="cursor:pointer" onclick="alert('Prototype : ouverture de la fiche « ${e.name} »')">
+          <span class="dot-acid" style="margin-top:2px"></span>
+          <div>
+            <div style="font-weight:600;font-size:13px">${e.name}</div>
+            <div style="font-size:12px;color:var(--muted-dark)">${icon('mapPin')} ${e.place}</div>
+          </div>
+          <span class="fi-time">${e.date}</span>
+        </div>`).join('') : `<div class="s-sub">Aucun événement à venir ce mois-ci.</div>`}
+    </div>
+  </div>
+</div>`;
+};
 
 /* =================== CREATE EVENT — WIZARD =================== */
 const ALL_STEPS = [
