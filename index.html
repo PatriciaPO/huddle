@@ -277,6 +277,11 @@
   .chip:hover{border-color:var(--brand)}
   .chip.sel{background:var(--brand-tint);color:var(--brand);border-color:var(--brand)}
   .chip.sel .dot-acid{box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+  /* .chip-on : même rendu que .chip.sel, mais sans passer par la classe .sel
+     (qui sert aussi à styler les <select> en width:100% — l'appliquer à un
+     <button class="chip"> dans une rangée flex-wrap l'étire sur toute la ligne). */
+  .chip.chip-on{background:var(--brand-tint);color:var(--brand);border-color:var(--brand);width:auto}
+  .chip.chip-on .dot-acid{box-shadow:0 0 0 2px rgba(255,255,255,.7)}
 
   /* session builder */
   .session-row{display:grid;grid-template-columns:1fr 130px 90px 40px;gap:12px;align-items:center;padding:14px;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:10px}
@@ -425,6 +430,40 @@
   .sb-tabs button{padding:9px 3px;font-size:13px;font-weight:600;color:var(--muted-dark);border-bottom:2px solid transparent;margin-bottom:-1px}
   .sb-tabs button.active{color:var(--ink);border-color:var(--brand)}
 
+  /* ===== Invités & participants ===== */
+  .gu-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px}
+  .gu-search{flex:1 1 240px;min-width:200px}
+  .gu-event-sel{width:auto;flex:0 0 auto}
+  .gu-bulk{display:flex;flex-wrap:wrap;align-items:center;gap:16px;background:var(--brand-tint);border:1px solid var(--brand);border-radius:var(--radius-sm);padding:11px 16px;margin-bottom:14px;font-size:13px;font-weight:600;color:var(--brand)}
+  .gu-bulk button{color:var(--brand);display:inline-flex;align-items:center;gap:6px}
+  .gu-bulk button svg{width:14px;height:14px}
+  .gu-bulk button:hover{text-decoration:underline}
+  th.sortable{cursor:pointer;user-select:none}
+  th.sortable:hover{color:var(--ink)}
+  th.sortable.active{color:var(--brand)}
+  tr.gu-row{cursor:pointer}
+  .gu-checkin-yes{color:var(--success-fg);display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:12px}
+  .gu-checkin-no{color:var(--muted-dark);font-size:12px}
+
+  .gd-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200}
+  .gd-panel{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:92vw;background:var(--surface);z-index:201;overflow-y:auto;padding:26px;box-shadow:-16px 0 40px -24px rgba(0,0,0,.5)}
+  .gd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:22px}
+  .gd-close{color:var(--muted-dark);flex:0 0 auto}
+  .gd-close:hover{color:var(--ink)}
+  .gd-close svg{width:18px;height:18px}
+  .gd-avatar{width:46px;height:46px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:15px;font-weight:700;flex:0 0 auto}
+  .gd-name{font-size:16.5px;font-weight:700}
+  .gd-sub{font-size:12.5px;color:var(--muted-dark);margin-top:2px}
+  .gd-section{margin-top:22px}
+  .gd-label{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-dark);font-weight:600;margin-bottom:10px}
+  .gd-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;padding:8px 0;border-bottom:1px solid var(--border)}
+  .gd-row:last-child{border-bottom:none}
+  .gd-hist-item{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:8px 0;border-bottom:1px solid var(--border)}
+  .gd-hist-item:last-child{border-bottom:none}
+  .gd-hist-item .gh-date{color:var(--muted-dark);white-space:nowrap}
+  .gd-actions{display:flex;gap:10px;margin-top:24px}
+  .gd-actions svg{width:15px;height:15px}
+
   .hidden{display:none!important}
 
   /* empty helper note */
@@ -521,6 +560,11 @@ const state = {
     { name: 'Prospects qualifiés', count: 610, color: '#742774' },
     { name: 'Partenaires', count: 95, color: '#D24726' },
   ],
+  /* Page « Invités & participants » — vue transverse à tous les événements. */
+  guestsFilters: { query: '', event: 'all', status: 'all' },
+  guestsSort: { key: 'name', dir: 'asc' },
+  guestsSelected: [],       // ids cochés (actions groupées)
+  guestsDrawerId: null,     // id de l'invité affiché dans la fiche détaillée
   pageBlocks: [
     { key:'hero',         label:'En-tête (nom, date, description)', on:true },
     { key:'infos',        label:'Infos pratiques (lieu, places, sessions)', on:true },
@@ -563,6 +607,7 @@ const I = {
   arrowLeft:'<path d="M19 12H5M12 19l-7-7 7-7"/>',
   arrowRight:'<path d="M5 12h14M12 5l7 7-7 7"/>',
   check:'<path d="M20 6L9 17l-5-5"/>',
+  x:'<path d="M18 6L6 18M6 6l12 12"/>',
   trash:'<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
   send:'<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
@@ -1926,44 +1971,205 @@ views.create = () => {
 };
 
 /* =================== GUESTS =================== */
-const GUESTS = [
-  ['Élodie Faure','elodie.faure@acme.io','Acme Corp','Confirmé','green','Keynote, Atelier IA'],
-  ['Marc Petit','m.petit@fintrust.fr','Fintrust','Confirmé','green','Keynote'],
-  ['Nadia Cohen','nadia@grupo.es','Grupo','En attente','yellow','—'],
-  ['Tom Riddle','t.riddle@novadata.co','NovaData','Confirmé','green','Table ronde'],
-  ['Julie Blanc','julie.blanc@bpi.fr','BPI','Refusé','grey','—'],
+const STATUS_META = {
+  confirmed:    { label: 'Confirmé',     color: 'green'  },
+  pending:      { label: 'En attente',   color: 'yellow' },
+  declined:     { label: 'Refusé',       color: 'grey'   },
+  'no-response':{ label: 'Sans réponse', color: 'blue'   },
+};
+const STATUS_FILTERS = [
+  { key: 'all', label: 'Tous' },
+  { key: 'confirmed', label: 'Confirmé' },
+  { key: 'pending', label: 'En attente' },
+  { key: 'declined', label: 'Refusé' },
+  { key: 'no-response', label: 'Sans réponse' },
 ];
-views.guests = () => `
+const GUESTS = [
+  { id:'g1', name:'Élodie Faure', email:'elodie.faure@acme.io', company:'Acme Corp', event:'Sommet Data & IA 2026', status:'confirmed', checkin:true, plusOne:1,
+    sessions:['Keynote d’ouverture','Atelier — Data & IA'],
+    history:[['E-mail','Invitation envoyée','12 févr. 2026'],['Formulaire','Inscription confirmée','13 févr. 2026'],['E-mail','Rappel J-7 ouvert','11 mars 2026']] },
+  { id:'g2', name:'Marc Petit', email:'m.petit@fintrust.fr', company:'Fintrust', event:'Sommet Data & IA 2026', status:'confirmed', checkin:true, plusOne:0,
+    sessions:['Keynote d’ouverture'],
+    history:[['E-mail','Invitation envoyée','12 févr. 2026'],['Formulaire','Inscription confirmée','14 févr. 2026']] },
+  { id:'g3', name:'Nadia Cohen', email:'nadia@grupo.es', company:'Grupo', event:'Sommet Data & IA 2026', status:'pending', checkin:false, plusOne:0,
+    sessions:[],
+    history:[['E-mail','Invitation envoyée','12 févr. 2026']] },
+  { id:'g4', name:'Tom Riddle', email:'t.riddle@novadata.co', company:'NovaData', event:'Sommet Data & IA 2026', status:'confirmed', checkin:true, plusOne:0,
+    sessions:['Table ronde partenaires'],
+    history:[['E-mail','Invitation envoyée','12 févr. 2026'],['Formulaire','Inscription confirmée','15 févr. 2026']] },
+  { id:'g5', name:'Julie Blanc', email:'julie.blanc@bpi.fr', company:'BPI', event:'Sommet Data & IA 2026', status:'declined', checkin:false, plusOne:0,
+    sessions:[],
+    history:[['E-mail','Invitation envoyée','12 févr. 2026'],['Formulaire','Réponse : ne participera pas','16 févr. 2026']] },
+  { id:'g6', name:'Karim Saïd', email:'k.said@capgemini.com', company:'Capgemini', event:'Sommet Data & IA 2026', status:'confirmed', checkin:false, plusOne:0,
+    sessions:['Keynote d’ouverture'],
+    history:[['E-mail','Invitation envoyée','12 févr. 2026'],['Formulaire','Inscription confirmée','18 févr. 2026']] },
+  { id:'g7', name:'Sofia Meng', email:'sofia.meng@grupo.es', company:'Grupo', event:'Table ronde RH & Talents', status:'pending', checkin:false, plusOne:0,
+    sessions:[],
+    history:[['E-mail','Invitation envoyée','2 avr. 2026']] },
+  { id:'g8', name:'Yanis Berg', email:'yanis.berg@fintrust.fr', company:'Fintrust', event:'Petit-déj Partenaires Q2', status:'confirmed', checkin:true, plusOne:0,
+    sessions:[],
+    history:[['E-mail','Invitation envoyée','20 mars 2026'],['Formulaire','Inscription confirmée','21 mars 2026']] },
+  { id:'g9', name:'Camille Roy', email:'camille.roy@novadata.co', company:'NovaData', event:'Salon Industrie Connect', status:'no-response', checkin:false, plusOne:0,
+    sessions:[],
+    history:[['E-mail','Invitation envoyée','1 juin 2026']] },
+];
+
+function guestsEventScoped(){
+  const ev = state.guestsFilters.event;
+  return ev==='all' ? GUESTS : GUESTS.filter(g=>g.event===ev);
+}
+function guestsFilteredList(){
+  const { query, status } = state.guestsFilters;
+  const q = query.trim().toLowerCase();
+  let list = guestsEventScoped().filter(g=>
+    (status==='all' || g.status===status) &&
+    (!q || `${g.name} ${g.company} ${g.email}`.toLowerCase().includes(q))
+  );
+  const { key, dir } = state.guestsSort;
+  list = list.slice().sort((a,b)=>{
+    const av = String(a[key]??'').toLowerCase(), bv = String(b[key]??'').toLowerCase();
+    if (av<bv) return dir==='asc' ? -1 : 1;
+    if (av>bv) return dir==='asc' ? 1 : -1;
+    return 0;
+  });
+  return list;
+}
+function guestsSetSort(key){
+  const s = state.guestsSort;
+  s.dir = (s.key===key && s.dir==='asc') ? 'desc' : 'asc';
+  s.key = key;
+  render();
+}
+function guestsSortArrow(key){
+  if (state.guestsSort.key!==key) return '';
+  return state.guestsSort.dir==='asc' ? ' ▲' : ' ▼';
+}
+function guestsToggleSelect(id){
+  const i = state.guestsSelected.indexOf(id);
+  if (i>-1) state.guestsSelected.splice(i,1); else state.guestsSelected.push(id);
+  render();
+}
+function guestsToggleSelectAll(ids){
+  const allSelected = ids.length>0 && ids.every(id=>state.guestsSelected.includes(id));
+  state.guestsSelected = allSelected
+    ? state.guestsSelected.filter(id=>!ids.includes(id))
+    : [...new Set([...state.guestsSelected, ...ids])];
+  render();
+}
+function guestsOpenDrawer(id){ state.guestsDrawerId=id; render(); }
+function guestsCloseDrawer(){ state.guestsDrawerId=null; render(); }
+
+function guestsDrawer(){
+  const g = GUESTS.find(x=>x.id===state.guestsDrawerId);
+  if (!g) return '';
+  const meta = STATUS_META[g.status];
+  return `
+  <div class="gd-backdrop" onclick="guestsCloseDrawer()"></div>
+  <div class="gd-panel">
+    <div class="gd-head">
+      <div style="display:flex;gap:14px;align-items:center">
+        <span class="gd-avatar">${g.name.split(' ').map(x=>x[0]).join('')}</span>
+        <div><div class="gd-name">${g.name}</div><div class="gd-sub">${g.email}</div></div>
+      </div>
+      <button class="gd-close" onclick="guestsCloseDrawer()">${icon('x')}</button>
+    </div>
+
+    <div class="gd-row"><span style="color:var(--muted-dark)">Société</span><b>${g.company}</b></div>
+    <div class="gd-row"><span style="color:var(--muted-dark)">Événement</span><b>${g.event}</b></div>
+    <div class="gd-row"><span style="color:var(--muted-dark)">Statut</span><span class="tag ${meta.color}">${meta.color==='green'?'<span class=dot-acid></span>':''}${meta.label}</span></div>
+    <div class="gd-row"><span style="color:var(--muted-dark)">Check-in</span>${g.checkin?`<span class="gu-checkin-yes">${icon('check','fi-check')} Présent</span>`:'<span class="gu-checkin-no">Pas encore</span>'}</div>
+    ${g.plusOne ? `<div class="gd-row"><span style="color:var(--muted-dark)">Accompagnants</span><b>+${g.plusOne}</b></div>` : ''}
+
+    <div class="gd-section">
+      <div class="gd-label">Sessions inscrites</div>
+      ${g.sessions.length ? g.sessions.map(s=>`<div class="gd-row"><span>${s}</span></div>`).join('') : '<div style="font-size:12.5px;color:var(--muted-dark)">Aucune session — inscription globale à l’événement.</div>'}
+    </div>
+
+    <div class="gd-section">
+      <div class="gd-label">Historique des communications</div>
+      ${g.history.length ? g.history.map(h=>`<div class="gd-hist-item"><span>${h[0]} · ${h[1]}</span><span class="gh-date">${h[2]}</span></div>`).join('') : '<div style="font-size:12.5px;color:var(--muted-dark)">Aucune communication envoyée pour l’instant.</div>'}
+    </div>
+
+    <div class="gd-actions">
+      <button class="btn btn-acid" style="flex:1" onclick="alert('Prototype : e-mail de relance envoyé à ${g.name}')">${icon('send')} Relancer</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="alert('Prototype : invité retiré de la liste')">Retirer</button>
+    </div>
+  </div>`;
+}
+
+views.guests = () => {
+  const scoped = guestsEventScoped();
+  const list = guestsFilteredList();
+  const ids = list.map(g=>g.id);
+  const allSelected = ids.length>0 && ids.every(id=>state.guestsSelected.includes(id));
+  const count = s => scoped.filter(g=>g.status===s).length;
+  const sel = state.guestsSelected;
+  return `
 <div class="page">
   <div class="page-head">
     <div><div class="page-title">Invités & participants</div>
-    <div class="page-sub">1 284 contacts · 342 confirmés · 58 en attente</div></div>
+    <div class="page-sub">${scoped.length} contact${scoped.length>1?'s':''} · ${count('confirmed')} confirmés · ${count('pending')} en attente</div></div>
     <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="alert('Prototype : relance e-mail envoyée aux ${count('no-response')} invités sans réponse')">Relancer les sans-réponse</button>
       <button class="btn btn-ghost" onclick="alert('Prototype : import CSV / segment')">Importer</button>
       <button class="btn btn-acid" onclick="alert('Prototype : ajout manuel d’un invité')">${icon('plus')} Ajouter</button>
     </div>
   </div>
   <div class="grid kpi-grid" style="margin-bottom:22px">
-    ${[['Confirmés','342'],['En attente','58'],['Refus','24'],['Sans réponse','118']].map(k=>`
+    ${[['Confirmés',count('confirmed')],['En attente',count('pending')],['Refus',count('declined')],['Sans réponse',count('no-response')]].map(k=>`
       <div class="card kpi"><div class="kpi-label">${k[0]}</div><div class="kpi-num">${k[1]}</div></div>`).join('')}
   </div>
+
+  <div class="gu-toolbar">
+    <input class="inp gu-search" type="text" placeholder="Rechercher un nom, une société, un e-mail…" value="${state.guestsFilters.query}" oninput="state.guestsFilters.query=this.value;render()">
+    <select class="sel gu-event-sel" onchange="state.guestsFilters.event=this.value;render()">
+      <option value="all" ${state.guestsFilters.event==='all'?'selected':''}>Tous les événements</option>
+      ${EVENTS.map(e=>`<option value="${e.name}" ${state.guestsFilters.event===e.name?'selected':''}>${e.name}</option>`).join('')}
+    </select>
+    <div class="chip-pick">
+      ${STATUS_FILTERS.map(s=>`<button class="chip ${state.guestsFilters.status===s.key?'chip-on':''}" onclick="state.guestsFilters.status='${s.key}';render()">${state.guestsFilters.status===s.key&&s.key!=='all'?'<span class=dot-acid></span>':''}${s.label}</button>`).join('')}
+    </div>
+  </div>
+
+  ${sel.length ? `
+  <div class="gu-bulk">
+    <span>${sel.length} sélectionné${sel.length>1?'s':''}</span>
+    <button onclick="alert('Prototype : relance e-mail envoyée à ${sel.length} invité(s)')">${icon('send')} Relancer par e-mail</button>
+    <button onclick="alert('Prototype : export CSV de la sélection')">Exporter</button>
+    <button onclick="state.guestsSelected=[];render()">Désélectionner</button>
+  </div>` : ''}
+
   <div class="card" style="padding:20px 8px 8px">
     <table>
-      <thead><tr><th style="padding-left:14px">Invité</th><th>Société</th><th>Statut</th><th>Sessions</th><th></th></tr></thead>
+      <thead><tr>
+        <th style="padding-left:14px;width:32px"><input type="checkbox" ${allSelected?'checked':''} onchange="guestsToggleSelectAll(${JSON.stringify(ids)})"></th>
+        <th class="sortable ${state.guestsSort.key==='name'?'active':''}" onclick="guestsSetSort('name')">Invité${guestsSortArrow('name')}</th>
+        <th class="sortable ${state.guestsSort.key==='company'?'active':''}" onclick="guestsSetSort('company')">Société${guestsSortArrow('company')}</th>
+        ${state.guestsFilters.event==='all' ? `<th class="sortable ${state.guestsSort.key==='event'?'active':''}" onclick="guestsSetSort('event')">Événement${guestsSortArrow('event')}</th>` : ''}
+        <th>Statut</th><th>Check-in</th><th>Sessions</th><th></th>
+      </tr></thead>
       <tbody>
-        ${GUESTS.map(g=>`<tr>
-          <td style="padding-left:14px"><div style="display:flex;align-items:center;gap:11px">
-            <span class="mini-avatar">${g[0].split(' ').map(x=>x[0]).join('')}</span>
-            <div><div style="font-weight:600">${g[0]}</div><div style="font-size:12px;color:var(--muted-dark)">${g[1]}</div></div></div></td>
-          <td>${g[2]}</td>
-          <td><span class="tag ${g[4]}">${g[4]==='green'?'<span class=dot-acid></span>':''}${g[3]}</span></td>
-          <td style="color:var(--muted-dark);font-size:12.5px">${g[5]}</td>
-          <td style="text-align:right;padding-right:14px;color:var(--muted-dark)">⋯</td>
-        </tr>`).join('')}
+        ${list.map(g=>{
+          const meta = STATUS_META[g.status];
+          return `<tr class="gu-row" onclick="guestsOpenDrawer('${g.id}')">
+          <td style="padding-left:14px" onclick="event.stopPropagation()"><input type="checkbox" ${sel.includes(g.id)?'checked':''} onchange="guestsToggleSelect('${g.id}')"></td>
+          <td><div style="display:flex;align-items:center;gap:11px">
+            <span class="mini-avatar">${g.name.split(' ').map(x=>x[0]).join('')}</span>
+            <div><div style="font-weight:600">${g.name}${g.plusOne?` <span style="color:var(--muted-dark);font-weight:500">+${g.plusOne}</span>`:''}</div><div style="font-size:12px;color:var(--muted-dark)">${g.email}</div></div></div></td>
+          <td>${g.company}</td>
+          ${state.guestsFilters.event==='all' ? `<td style="color:var(--muted-dark);font-size:12.5px">${g.event}</td>` : ''}
+          <td><span class="tag ${meta.color}">${meta.color==='green'?'<span class=dot-acid></span>':''}${meta.label}</span></td>
+          <td>${g.checkin?`<span class="gu-checkin-yes">${icon('check','fi-check')} Présent</span>`:'<span class="gu-checkin-no">—</span>'}</td>
+          <td style="color:var(--muted-dark);font-size:12.5px">${g.sessions.length?g.sessions.join(', '):'—'}</td>
+          <td style="text-align:right;padding-right:14px;color:var(--muted-dark)" onclick="event.stopPropagation();alert('Prototype : actions rapides')">⋯</td>
+        </tr>`;
+        }).join('') || `<tr><td colspan="${state.guestsFilters.event==='all'?8:7}" style="text-align:center;color:var(--muted-dark);padding:30px 0">Aucun invité ne correspond à ces filtres.</td></tr>`}
       </tbody>
     </table>
   </div>
-</div>`;
+</div>
+${guestsDrawer()}`;
+};
 
 /* =================== CHECK-IN (tab "Jour J" de l'espace événement) =================== */
 function toggleStaffStatus(id){
