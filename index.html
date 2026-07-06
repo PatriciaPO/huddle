@@ -159,23 +159,56 @@
   /* section title */
   .sec-title{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted-dark);font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 
-  /* calendar (month grid) */
-  .cal-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-  .cal-toolbar .cal-title{font-size:16px;font-weight:700;letter-spacing:-.3px;text-transform:capitalize}
+  /* calendar */
+  .cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+  .cal-toolbar-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .cal-toolbar .cal-title{font-size:16px;font-weight:700;letter-spacing:-.3px;text-transform:capitalize;white-space:nowrap}
   .cal-nav{display:flex;gap:6px}
   .cal-nav button{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted-dark);border:1px solid var(--border-strong)}
   .cal-nav button:hover{background:var(--surface-sunken);color:var(--ink)}
   .cal-nav button svg{width:15px;height:15px}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .cal-jump{padding:8px 10px;font-size:12.5px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);font-family:inherit}
+  .cal-view-tabs{display:flex;gap:6px}
+
+  /* month grid — fixed-size cells, uniform regardless of event count */
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:104px;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .cal-grid.cal-grid-head{grid-auto-rows:auto;margin-bottom:1px}
   .cal-weekday{background:var(--surface-alt);padding:9px 0;text-align:center;font-size:11px;font-weight:600;color:var(--muted-dark);text-transform:uppercase;letter-spacing:.5px}
-  .cal-cell{background:var(--surface);min-height:96px;padding:8px;display:flex;flex-direction:column;gap:4px}
+  .cal-cell{background:var(--surface);height:104px;padding:7px;display:flex;flex-direction:column;gap:3px;overflow:hidden;cursor:default}
   .cal-cell.out{background:var(--surface-alt)}
-  .cal-cell.today .cal-daynum{background:var(--brand);color:#fff}
-  .cal-daynum{font-size:11.5px;font-weight:600;color:var(--muted-dark);width:20px;height:20px;border-radius:50%;display:grid;place-items:center}
+  .cal-cell.sel{box-shadow:inset 0 0 0 2px var(--brand)}
+  .cal-daynum{font-size:11.5px;font-weight:600;color:var(--muted-dark);width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto}
   .cal-cell.out .cal-daynum{color:var(--muted)}
-  .cal-event-chip{background:var(--brand-tint);color:var(--brand);font-size:10.5px;font-weight:600;padding:3px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .cal-event-chip{background:var(--brand-tint);color:var(--brand);font-size:10.5px;font-weight:600;padding:3px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;flex:0 0 auto}
   .cal-event-chip:hover{background:var(--brand);color:#fff}
-  @media(max-width:920px){.cal-cell{min-height:64px}}
+  .cal-event-chip.sel{background:var(--brand);color:#fff}
+  .cal-more{font-size:10.5px;color:var(--muted-dark);font-weight:600;padding:2px 6px}
+  @media(max-width:920px){.cal-grid{grid-auto-rows:72px}.cal-cell{height:72px}}
+
+  /* week view */
+  .cal-week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+  .cal-week-day{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;min-height:220px;display:flex;flex-direction:column;gap:6px;background:var(--surface)}
+  .cal-week-day.today-col{border-color:var(--brand)}
+  .cal-week-head{font-size:11px;color:var(--muted-dark);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .cal-week-num{font-size:17px;font-weight:700;margin-top:2px}
+
+  /* quarter view — 3 mini month grids */
+  .cal-quarter{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .cal-mini-title{font-size:12.5px;font-weight:700;text-transform:capitalize;margin-bottom:8px;text-align:center}
+  .cal-mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .cal-mini-wd{font-size:9px;text-align:center;color:var(--muted-dark);font-weight:600}
+  .cal-mini-cell{position:relative;height:26px;display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--muted-dark);border-radius:5px}
+  .cal-mini-cell.out{color:var(--muted)}
+  .cal-mini-cell.has-event{background:var(--brand-tint);color:var(--brand);font-weight:700;cursor:pointer}
+  .cal-mini-cell.has-event:hover{background:var(--brand);color:#fff}
+
+  /* recap panel */
+  .cal-recap-tag-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+  .cal-recap-title{font-size:17px;font-weight:700;letter-spacing:-.3px;margin-top:8px}
+  .cal-recap-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+  .cal-recap-stats .rs-num{font-size:19px;font-weight:700}
+  .cal-recap-stats .rs-lbl{font-size:11px;color:var(--muted-dark);margin-top:2px}
+  .cal-recap-extra{font-size:12.5px;color:var(--muted-dark);display:flex;align-items:center;gap:7px;margin-top:10px}
 
   /* event list cards */
   .ev-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:.15s;cursor:pointer;display:flex;flex-direction:column;box-shadow:var(--shadow-2)}
@@ -447,8 +480,9 @@ const state = {
     lieu: 'Station F — 5 Parvis Alan Turing, 75013 Paris',
     description: 'Une journée dédiée aux décideurs data : retours d’expérience, ateliers pratiques et networking.',
   },
-  calendarMonth: 2,          // vue calendrier — mois affiché (0=janvier), aligné sur le prochain événement
-  calendarYear: 2026,
+  calendarDate: '2026-03-18',      // vue calendrier — jour de référence affiché/sélectionné (ISO)
+  calendarView: 'month',           // 'month' | 'week' | 'quarter'
+  calendarSelectedEvent: 'Sommet Data & IA 2026', // événement affiché dans le récapitulatif
   segmentBuilder: false,     // affiche l'écran de création de segment Dataverse
   segMemberType: 'Contact',
   pubMode: 'now',
@@ -564,12 +598,12 @@ function logoMark(cls='', variant='light'){
 const NAV = [
   { title:'Accueil', items:[
     { key:'dashboard', label:'Tableau de bord', icon:'grid' },
+    { key:'calendar',  label:'Calendrier',       icon:'calendarDays' },
     { key:'reporting', label:'Reporting',       icon:'chart' },
   ]},
   { title:'Événements', items:[
-    { key:'events',   label:'Tous les événements',      icon:'calendar' },
-    { key:'calendar', label:'Calendrier',                icon:'calendarDays' },
-    { key:'create',   label:'Créer un événement',       icon:'plus' },
+    { key:'events',  label:'Tous les événements',      icon:'calendar' },
+    { key:'create',  label:'Créer un événement',       icon:'plus' },
     { key:'guests',  label:'Invités & participants',   icon:'users' },
     { key:'checkin', label:'Check-in',                 icon:'scan' },
   ]},
@@ -761,9 +795,12 @@ views.events = () => `
 const CAL_MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const CAL_WEEKDAYS_FR = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 
+function calParseISO(s){ return new Date(s+'T00:00:00'); }
+function calToISO(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function calStartOfWeek(date){ const d=new Date(date); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d; }
 function calEventsOn(year, month, day){
   return EVENTS.filter(e=>{
-    const d = new Date(e.dateISO+'T00:00:00');
+    const d = calParseISO(e.dateISO);
     return d.getFullYear()===year && d.getMonth()===month && d.getDate()===day;
   });
 }
@@ -779,17 +816,162 @@ function calGridCells(year, month){
   return cells;
 }
 function calNav(delta){
-  let m = state.calendarMonth + delta;
-  let y = state.calendarYear;
-  if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
-  state.calendarMonth = m; state.calendarYear = y;
+  const d = calParseISO(state.calendarDate);
+  if (state.calendarView==='week') d.setDate(d.getDate()+delta*7);
+  else if (state.calendarView==='quarter') d.setMonth(d.getMonth()+delta*3);
+  else d.setMonth(d.getMonth()+delta);
+  state.calendarDate = calToISO(d);
   render();
 }
+function calJumpToDate(value){
+  if (!value) return;
+  state.calendarDate = value;
+  render();
+}
+function calSetView(view){
+  state.calendarView = view;
+  render();
+}
+function selectCalEvent(name){
+  state.calendarSelectedEvent = name;
+  const ev = EVENTS.find(e=>e.name===name);
+  if (ev) state.calendarDate = ev.dateISO;
+  render();
+}
+function calTitle(anchor){
+  const view = state.calendarView;
+  if (view==='week') {
+    const start = calStartOfWeek(anchor);
+    const end = new Date(start); end.setDate(start.getDate()+6);
+    return start.getMonth()===end.getMonth()
+      ? `${start.getDate()}–${end.getDate()} ${CAL_MONTHS_FR[start.getMonth()]} ${start.getFullYear()}`
+      : `${start.getDate()} ${CAL_MONTHS_FR[start.getMonth()]} – ${end.getDate()} ${CAL_MONTHS_FR[end.getMonth()]} ${end.getFullYear()}`;
+  }
+  if (view==='quarter') {
+    const endM = (anchor.getMonth()+2)%12;
+    const endY = anchor.getFullYear() + (anchor.getMonth()+2>11?1:0);
+    return `${CAL_MONTHS_FR[anchor.getMonth()]} – ${CAL_MONTHS_FR[endM]} ${endY}`;
+  }
+  return `${CAL_MONTHS_FR[anchor.getMonth()]} ${anchor.getFullYear()}`;
+}
+
+function calMonthView(anchor){
+  const year=anchor.getFullYear(), month=anchor.getMonth();
+  const selDay = calToISO(anchor);
+  return `<div class="cal-grid">
+    ${CAL_WEEKDAYS_FR.map(w=>`<div class="cal-weekday">${w}</div>`).join('')}
+    ${calGridCells(year,month).map(c=>{
+      if (c.out) return `<div class="cal-cell out"><div class="cal-daynum">${c.day}</div></div>`;
+      const dayEvents = calEventsOn(year, month, c.day);
+      const iso = calToISO(new Date(year,month,c.day));
+      const shown = dayEvents.slice(0,3);
+      const extra = dayEvents.length - shown.length;
+      return `
+      <div class="cal-cell ${iso===selDay?'sel':''}">
+        <div class="cal-daynum">${c.day}</div>
+        ${shown.map(e=>`<button class="cal-event-chip ${e.name===state.calendarSelectedEvent?'sel':''}" title="${e.name}" onclick="selectCalEvent('${e.name.replace(/'/g,"\\'")}')">${e.name}</button>`).join('')}
+        ${extra>0 ? `<div class="cal-more">+${extra} autre${extra>1?'s':''}</div>` : ''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function calWeekView(anchor){
+  const start = calStartOfWeek(anchor);
+  const selDay = calToISO(anchor);
+  const days = Array.from({length:7},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return d; });
+  return `<div class="cal-week-grid">
+    ${days.map(d=>{
+      const iso = calToISO(d);
+      const dayEvents = calEventsOn(d.getFullYear(), d.getMonth(), d.getDate());
+      return `
+      <div class="cal-week-day ${iso===selDay?'today-col':''}">
+        <div class="cal-week-head">${CAL_WEEKDAYS_FR[(d.getDay()+6)%7]}</div>
+        <div class="cal-week-num">${d.getDate()}</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+          ${dayEvents.length ? dayEvents.map(e=>`<button class="cal-event-chip ${e.name===state.calendarSelectedEvent?'sel':''}" style="white-space:normal;text-align:left" onclick="selectCalEvent('${e.name.replace(/'/g,"\\'")}')">${e.name}</button>`).join('') : `<div style="font-size:11px;color:var(--muted)">—</div>`}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function calQuarterView(anchor){
+  const year=anchor.getFullYear(), month=anchor.getMonth();
+  const months = [0,1,2].map(i=>{ let m=month+i, y=year; if (m>11){ m-=12; y++; } return { y, m }; });
+  return `<div class="cal-quarter">
+    ${months.map(({y,m})=>`
+      <div>
+        <div class="cal-mini-title">${CAL_MONTHS_FR[m]} ${y}</div>
+        <div class="cal-mini-grid">
+          ${CAL_WEEKDAYS_FR.map(w=>`<div class="cal-mini-wd">${w[0]}</div>`).join('')}
+          ${calGridCells(y,m).map(c=>{
+            if (c.out) return `<div class="cal-mini-cell out">${c.day}</div>`;
+            const dayEvents = calEventsOn(y,m,c.day);
+            if (!dayEvents.length) return `<div class="cal-mini-cell">${c.day}</div>`;
+            return `<div class="cal-mini-cell has-event" title="${dayEvents.map(e=>e.name).join(', ')}" onclick="selectCalEvent('${dayEvents[0].name.replace(/'/g,"\\'")}')">${c.day}</div>`;
+          }).join('')}
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function calRecapEvent(){
+  return EVENTS.find(e=>e.name===state.calendarSelectedEvent) || EVENTS[0];
+}
+function calRecapPanel(){
+  const e = calRecapEvent();
+  const pct = e.cap ? Math.round(e.reg/e.cap*100) : 0;
+  const isConfiguredEvent = e.name === state.eventInfo.name;
+  const others = EVENTS.filter(x=>x.name!==e.name).sort((a,b)=>new Date(a.dateISO)-new Date(b.dateISO));
+  return `
+  <div class="card">
+    <div class="sec-title">Récapitulatif</div>
+    <div class="cal-recap-tag-row">
+      <span class="tag blue">${e.type}</span>
+      <span class="tag ${e.status[1]}"><span class="stat-dot"></span>${e.status[0]}</span>
+    </div>
+    <div class="cal-recap-title">${e.name}</div>
+    <div class="ev-meta" style="margin-top:8px">${icon('calendar')} ${e.date}</div>
+    <div class="ev-meta" style="margin-top:5px">${icon('mapPin')} ${e.place}</div>
+
+    <div style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:8px">
+        <span style="color:var(--muted-dark)">Remplissage · ${e.reg} / ${e.cap} places</span>
+        <b>${pct}%</b>
+      </div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+    </div>
+
+    <div class="cal-recap-stats">
+      <div><div class="rs-num">${e.reg}</div><div class="rs-lbl">Inscrits</div></div>
+      <div><div class="rs-num">${Math.max(e.cap-e.reg,0)}</div><div class="rs-lbl">Places restantes</div></div>
+      <div><div class="rs-num">${isConfiguredEvent ? state.sessions.length : '—'}</div><div class="rs-lbl">Sessions</div></div>
+    </div>
+
+    ${isConfiguredEvent ? `<div class="cal-recap-extra">${icon('users')} ${state.speakers.length} intervenant${state.speakers.length>1?'s':''} confirmé${state.speakers.length>1?'s':''}</div>` : ''}
+
+    <button class="btn btn-ghost" style="margin-top:20px;width:100%;justify-content:center" onclick="alert('Prototype : ouverture de la fiche « ${e.name} »')">Voir la fiche complète</button>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="sec-title">Autres événements à venir</div>
+    ${others.length ? others.map(x=>`
+      <div class="feed-item" style="cursor:pointer" onclick="selectCalEvent('${x.name.replace(/'/g,"\\'")}')">
+        <span class="dot-acid" style="margin-top:2px"></span>
+        <div>
+          <div style="font-weight:600;font-size:13px">${x.name}</div>
+          <div style="font-size:12px;color:var(--muted-dark)">${icon('mapPin')} ${x.place}</div>
+        </div>
+        <span class="fi-time">${x.date}</span>
+      </div>`).join('') : `<div class="s-sub">Aucun autre événement.</div>`}
+  </div>`;
+}
+
 views.calendar = () => {
-  const year = state.calendarYear, month = state.calendarMonth;
-  const cells = calGridCells(year, month);
-  const upcoming = EVENTS.filter(e=>new Date(e.dateISO+'T00:00:00') >= new Date(year, month, 1))
-    .sort((a,b)=>new Date(a.dateISO)-new Date(b.dateISO));
+  const anchor = calParseISO(state.calendarDate);
+  const view = state.calendarView;
+  const gridHtml = view==='week' ? calWeekView(anchor) : view==='quarter' ? calQuarterView(anchor) : calMonthView(anchor);
   return `
 <div class="page">
   <div class="page-head">
@@ -803,37 +985,25 @@ views.calendar = () => {
   <div class="grid" style="grid-template-columns:1.7fr 1fr;gap:16px;align-items:start">
     <div class="card">
       <div class="cal-toolbar">
-        <div class="cal-title">${CAL_MONTHS_FR[month]} ${year}</div>
-        <div class="cal-nav">
-          <button onclick="calNav(-1)">${icon('arrowLeft')}</button>
-          <button onclick="calNav(1)">${icon('arrowRight')}</button>
+        <div class="cal-toolbar-left">
+          <div class="cal-title">${calTitle(anchor)}</div>
+          <div class="cal-nav">
+            <button onclick="calNav(-1)">${icon('arrowLeft')}</button>
+            <button onclick="calNav(1)">${icon('arrowRight')}</button>
+          </div>
+          <input type="date" class="cal-jump" value="${state.calendarDate}" onchange="calJumpToDate(this.value)">
+        </div>
+        <div class="cal-view-tabs">
+          <button class="dev-btn ${view==='month'?'active':''}" onclick="calSetView('month')">Mois</button>
+          <button class="dev-btn ${view==='week'?'active':''}" onclick="calSetView('week')">Semaine</button>
+          <button class="dev-btn ${view==='quarter'?'active':''}" onclick="calSetView('quarter')">Trimestre</button>
         </div>
       </div>
-      <div class="cal-grid">
-        ${CAL_WEEKDAYS_FR.map(w=>`<div class="cal-weekday">${w}</div>`).join('')}
-        ${cells.map(c=>{
-          if (c.out) return `<div class="cal-cell out"><div class="cal-daynum">${c.day}</div></div>`;
-          const dayEvents = calEventsOn(year, month, c.day);
-          return `
-          <div class="cal-cell">
-            <div class="cal-daynum">${c.day}</div>
-            ${dayEvents.map(e=>`<button class="cal-event-chip" onclick="alert('Prototype : ouverture de la fiche « ${e.name} »')">${e.name}</button>`).join('')}
-          </div>`;
-        }).join('')}
-      </div>
+      ${gridHtml}
     </div>
 
-    <div class="card">
-      <div class="sec-title">Prochains événements</div>
-      ${upcoming.length ? upcoming.map(e=>`
-        <div class="feed-item" style="cursor:pointer" onclick="alert('Prototype : ouverture de la fiche « ${e.name} »')">
-          <span class="dot-acid" style="margin-top:2px"></span>
-          <div>
-            <div style="font-weight:600;font-size:13px">${e.name}</div>
-            <div style="font-size:12px;color:var(--muted-dark)">${icon('mapPin')} ${e.place}</div>
-          </div>
-          <span class="fi-time">${e.date}</span>
-        </div>`).join('') : `<div class="s-sub">Aucun événement à venir ce mois-ci.</div>`}
+    <div>
+      ${calRecapPanel()}
     </div>
   </div>
 </div>`;
