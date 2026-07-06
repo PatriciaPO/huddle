@@ -176,12 +176,12 @@
   .cal-weekday{background:var(--surface-alt);padding:9px 0;text-align:center;font-size:11px;font-weight:600;color:var(--muted-dark);text-transform:uppercase;letter-spacing:.5px}
   .cal-cell{background:var(--surface);height:104px;padding:7px;display:flex;flex-direction:column;gap:3px;overflow:hidden;cursor:default}
   .cal-cell.out{background:var(--surface-alt)}
-  .cal-cell.sel{box-shadow:inset 0 0 0 2px var(--brand)}
+  .cal-cell.chosen{box-shadow:inset 0 0 0 2px var(--brand)}
   .cal-daynum{font-size:11.5px;font-weight:600;color:var(--muted-dark);width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto}
   .cal-cell.out .cal-daynum{color:var(--muted)}
-  .cal-event-chip{background:var(--brand-tint);color:var(--brand);font-size:10.5px;font-weight:600;padding:3px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;flex:0 0 auto}
+  .cal-event-chip{display:block;width:100%;background:var(--brand-tint);color:var(--brand);font-size:10.5px;font-weight:600;padding:3px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;flex:0 0 auto;box-sizing:border-box}
   .cal-event-chip:hover{background:var(--brand);color:#fff}
-  .cal-event-chip.sel{background:var(--brand);color:#fff}
+  .cal-event-chip.chosen{background:var(--brand);color:#fff}
   .cal-more{font-size:10.5px;color:var(--muted-dark);font-weight:600;padding:2px 6px}
   @media(max-width:920px){.cal-grid{grid-auto-rows:72px}.cal-cell{height:72px}}
 
@@ -867,9 +867,9 @@ function calMonthView(anchor){
       const shown = dayEvents.slice(0,3);
       const extra = dayEvents.length - shown.length;
       return `
-      <div class="cal-cell ${iso===selDay?'sel':''}">
+      <div class="cal-cell ${iso===selDay?'chosen':''}">
         <div class="cal-daynum">${c.day}</div>
-        ${shown.map(e=>`<button class="cal-event-chip ${e.name===state.calendarSelectedEvent?'sel':''}" title="${e.name}" onclick="selectCalEvent('${e.name.replace(/'/g,"\\'")}')">${e.name}</button>`).join('')}
+        ${shown.map(e=>`<button class="cal-event-chip ${e.name===state.calendarSelectedEvent?'chosen':''}" title="${e.name}" onclick="selectCalEvent('${e.name.replace(/'/g,"\\'")}')">${e.name}</button>`).join('')}
         ${extra>0 ? `<div class="cal-more">+${extra} autre${extra>1?'s':''}</div>` : ''}
       </div>`;
     }).join('')}
@@ -889,7 +889,7 @@ function calWeekView(anchor){
         <div class="cal-week-head">${CAL_WEEKDAYS_FR[(d.getDay()+6)%7]}</div>
         <div class="cal-week-num">${d.getDate()}</div>
         <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
-          ${dayEvents.length ? dayEvents.map(e=>`<button class="cal-event-chip ${e.name===state.calendarSelectedEvent?'sel':''}" style="white-space:normal;text-align:left" onclick="selectCalEvent('${e.name.replace(/'/g,"\\'")}')">${e.name}</button>`).join('') : `<div style="font-size:11px;color:var(--muted)">—</div>`}
+          ${dayEvents.length ? dayEvents.map(e=>`<button class="cal-event-chip ${e.name===state.calendarSelectedEvent?'chosen':''}" style="white-space:normal;text-align:left" onclick="selectCalEvent('${e.name.replace(/'/g,"\\'")}')">${e.name}</button>`).join('') : `<div style="font-size:11px;color:var(--muted)">—</div>`}
         </div>
       </div>`;
     }).join('')}
@@ -1031,40 +1031,58 @@ function wizardSteps(){
 /* ============================================================
    Programme & sessions — arbre de décision à 4 cas
 
-     Est-ce un programme ?  NON → cas A (une seule session)
-                             OUI → Type ?
+     hasProgram (toggle de l'étape "Informations") :
+                             NON → cas A (une seule session)
+                             OUI → Type ?  (choisi dans l'étape "Programme")
                                      ODJ informatif        → cas B
                                      Multi-sessions → Groupe de sessions ?
                                                           SANS → cas C
                                                           AVEC → cas D
 
    Le cas se DÉRIVE de hasProgram/programType/useGroups (jamais stocké tel
-   quel) pour ne jamais désynchroniser. Le quota est facultatif en A/B
-   (state.quotaEnabled), obligatoire en C (par session) et D (par parcours).
-   state.sessions et state.parcours restent la source de vérité unique :
-   changer de cas ne supprime jamais les données déjà saisies, seule leur
-   présentation change — voir sessionsEditor()/parcoursEditor().
+   quel) pour ne jamais désynchroniser. Tant que hasProgram est activé sans
+   qu'un type ait encore été choisi, programCase() renvoie null (« en
+   attente ») pour ne jamais présumer d'un cas multi-sessions non confirmé.
+   Le quota est facultatif en A/B (state.quotaEnabled), obligatoire en C
+   (par session) et D (par parcours). state.sessions et state.parcours
+   restent la source de vérité unique : changer de cas ne supprime jamais
+   les données déjà saisies, seule leur présentation change — voir
+   sessionsEditor()/parcoursEditor().
    ============================================================ */
 
 function programCase(){
   if (!state.hasProgram) return 'A';
   if (state.programType === 'odj') return 'B';
-  return state.useGroups ? 'D' : 'C';
+  if (state.programType === 'multi') return state.useGroups ? 'D' : 'C';
+  return null; // programme activé, type pas encore choisi
 }
-function isCaseAB(){ const c = programCase(); return c==='A' || c==='B'; }
+function isCaseAB(){ const c = programCase(); return c==='A' || c==='B' || c===null; }
 function quotaActive(){
   const c = programCase();
   return (c==='C' || c==='D') ? true : !!state.quotaEnabled;
 }
 
+/* ---------- Le toggle "plusieurs sessions" vit dans l'étape "Informations"
+   (voir stepBody.info) ; il pilote hasProgram pour tout le wizard. Le
+   repasser à faux/vrai réinitialise le type/groupe choisis (pas les
+   sessions/parcours déjà saisis) pour ne jamais atterrir sur un écran de
+   détails correspondant à un choix qui n'a pas été reconfirmé. ---------- */
+function toggleHasProgram(checked){
+  state.hasProgram = checked;
+  state.programType = null;
+  state.useGroups = false;
+  state.progSubStep = 0;
+  render();
+}
+
 /* ---------- L'étape "Programme" du wizard est UNE seule étape côté sidebar,
-   mais elle contient en interne un mini-parcours pas-à-pas (l'arbre de
-   décision A/B/C/D), visualisé par une ligne de progression dans le panneau.
-   progSubSteps() calcule dynamiquement la liste des écrans pertinents selon
-   les réponses déjà données ; choisir une carte avance automatiquement au
-   suivant (voir progSubGo()). ---------- */
+   mais elle contient en interne un mini-parcours pas-à-pas (Type → Groupes
+   → Détails), visualisé par une ligne de progression dans le panneau quand
+   il y a plus d'un écran. progSubSteps() calcule dynamiquement la liste des
+   écrans pertinents selon les réponses déjà données ; choisir une carte
+   avance automatiquement au suivant (voir progSubGo()). ---------- */
 function progSubSteps(){
-  const steps = ['prog-has'];
+  const steps = [];
   if (state.hasProgram) {
     steps.push('prog-type');
     if (state.programType === 'multi') steps.push('prog-groups');
@@ -1072,7 +1090,7 @@ function progSubSteps(){
   steps.push('prog-content');
   return steps;
 }
-const PROG_SUB_LABELS = { 'prog-has':'Programme', 'prog-type':'Type', 'prog-groups':'Groupes', 'prog-content':'Détails' };
+const PROG_SUB_LABELS = { 'prog-type':'Type', 'prog-groups':'Groupes', 'prog-content':'Détails' };
 
 function progSubGo(i){
   const steps = progSubSteps();
@@ -1127,11 +1145,6 @@ function subStepper(steps, idx, labels){
       ${i<steps.length-1?'<span class="prog-stepper-line"></span>':''}`).join('')}
   </div>`;
 }
-function progProgressBar(){
-  const steps = progSubSteps();
-  return subStepper(steps, Math.min(state.progSubStep, steps.length-1), PROG_SUB_LABELS);
-}
-
 /* Registre des étapes wizard qui contiennent un mini-parcours interne,
    utilisé par wizGo()/wizFoot() pour naviguer dedans avant de changer d'étape. */
 const SUB_FLOWS = {
@@ -1443,23 +1456,17 @@ const stepBody = {
     </div>
     <div class="field"><label>Lieu <span class="hint">— présentiel ou lien de connexion</span></label><input class="inp" value="${state.eventInfo.lieu}" oninput="state.eventInfo.lieu=this.value;render()"></div>
     <div class="field"><label>Description <span class="hint">— visible sur la page web</span></label>
-      <textarea class="inp" rows="3" oninput="state.eventInfo.description=this.value;render()">${state.eventInfo.description}</textarea></div>`,
+      <textarea class="inp" rows="3" oninput="state.eventInfo.description=this.value;render()">${state.eventInfo.description}</textarea></div>
+    <div class="toggle-row" style="margin-top:6px">
+      <div>
+        <div class="tr-title">Cet événement comporte plusieurs sessions</div>
+        <div class="tr-desc">Active la configuration d’un programme (agenda informatif, ou sessions/parcours auxquels les invités s’inscrivent) à l’étape « Programme ». Désactivé : un seul créneau pour tous les invités.</div>
+      </div>
+      <label class="switch"><input type="checkbox" ${state.hasProgram?'checked':''} onchange="toggleHasProgram(this.checked)"><span class="slider"></span></label>
+    </div>`,
 
   program: () => {
     const SCREENS = {
-      'prog-has': () => `
-        <div class="pub-choice">
-          <div class="pub-opt ${!state.hasProgram?'sel':''}" onclick="state.hasProgram=false;progSubGo(state.progSubStep+1)">
-            <div class="po-icon">${icon('calendar')}</div>
-            <div class="po-title">Non, une seule session</div>
-            <div class="po-desc">Aucun programme : un seul créneau pour tous les invités.</div>
-          </div>
-          <div class="pub-opt ${state.hasProgram?'sel':''}" onclick="state.hasProgram=true;progSubGo(state.progSubStep+1)">
-            <div class="po-icon">${icon('grid')}</div>
-            <div class="po-title">Oui, il y a un programme</div>
-            <div class="po-desc">Plusieurs interventions ou sessions à organiser.</div>
-          </div>
-        </div>`,
       'prog-type': () => `
         <div class="pub-choice">
           <div class="pub-opt ${state.programType==='odj'?'sel':''}" onclick="state.programType='odj';progSubGo(state.progSubStep+1)">
@@ -1494,8 +1501,11 @@ const stepBody = {
         return sessionsEditor();
       },
     };
-    const key = progSubSteps()[state.progSubStep] || 'prog-has';
-    return `${progProgressBar()}<div style="margin-top:24px">${SCREENS[key]()}</div>`;
+    const steps = progSubSteps();
+    const idx = Math.min(state.progSubStep, steps.length-1);
+    const key = steps[idx] || 'prog-content';
+    const bar = steps.length > 1 ? subStepper(steps, idx, PROG_SUB_LABELS) : '';
+    return bar ? `${bar}<div style="margin-top:24px">${SCREENS[key]()}</div>` : SCREENS[key]();
   },
 
   quota: () => {
