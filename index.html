@@ -522,6 +522,8 @@ const state = {
   calendarDate: '2026-03-18',      // vue calendrier — jour de référence affiché/sélectionné (ISO)
   calendarView: 'month',           // 'month' | 'week' | 'quarter'
   calendarSelectedEvent: 'Sommet Data & IA 2026', // événement affiché dans le récapitulatif
+  detailEventName: null,     // fiche complète d'événement — événement affiché (voir openEvent())
+  detailReturnRoute: 'events', // route vers laquelle revient le bouton « Retour » de la fiche
   segmentBuilder: false,     // affiche l'écran de création de segment Dataverse
   segMemberType: 'Contact',
   pubMode: 'now',
@@ -697,6 +699,9 @@ function d365bar(){
 
 /* ---------- breadcrumb ---------- */
 function crumb(){
+  if (state.route === 'eventdetail') {
+    return `<div class="topbar"><div class="crumb">Huddle <span>›</span> Événements <span>›</span> <b>${state.detailEventName||''}</b></div></div>`;
+  }
   const label = (NAV_ITEMS.find(n=>n.key===state.route)||{}).label||'';
   return `<div class="topbar"><div class="crumb">Huddle <span>›</span> <b>${label}</b></div></div>`;
 }
@@ -706,6 +711,15 @@ const protoNote = (txt) =>
 
 /* ---------- router ---------- */
 function go(route){ state.route=route; if(route==='create'){/* keep step */} render(); window.scrollTo(0,0); const m=document.querySelector('.main'); if(m)m.scrollTo(0,0); }
+
+/* ---------- fiche complète d'un événement — ouverte depuis le Tableau de
+   bord, la liste Événements ou le récapitulatif du Calendrier. `from`
+   mémorise la route d'origine pour que le bouton « Retour » y ramène. ---------- */
+function openEvent(name, from){
+  state.detailEventName = name;
+  state.detailReturnRoute = from || (state.route!=='eventdetail' ? state.route : state.detailReturnRoute);
+  go('eventdetail');
+}
 
 const views = {}; // filled in app2.js
 
@@ -762,7 +776,7 @@ views.dashboard = () => `
           <div class="ev-meta" style="margin-top:8px">${icon('calendar')} 18 mars 2026 · 09h00</div>
           <div class="ev-meta" style="margin-top:5px">${icon('mapPin')} Station F, Paris</div>
         </div>
-        <button class="btn btn-ghost" onclick="go('events')">Ouvrir</button>
+        <button class="btn btn-ghost" onclick="openEvent('Sommet Data & IA 2026','dashboard')">Ouvrir</button>
       </div>
       <div style="margin-top:22px">
         <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:8px">
@@ -815,7 +829,7 @@ views.events = () => `
   </div>
   <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(255px,1fr))">
     ${EVENTS.map(e=>`
-      <div class="ev-card" onclick="alert('Prototype : ouverture de la fiche « ${e.name} »\\n(consultation détaillée à approfondir)')">
+      <div class="ev-card" onclick="openEvent('${e.name.replace(/'/g,"\\'")}','events')">
         <div class="ev-top">
           <div class="ev-type">${e.type}</div>
           <div class="ev-name">${e.name}</div>
@@ -835,6 +849,125 @@ views.events = () => `
       </div>`).join('')}
   </div>
 </div>`;
+
+/* ---------- rendu du programme, factorisé sur programModel() (déjà utilisé
+   par l'aperçu de la page web publique) pour ne jamais désynchroniser
+   l'affichage de la fiche événement de celui vu par l'invité. ---------- */
+function eventProgrammeHtml(m){
+  if (m.grouped) return m.groups.map(g=>`
+    <div class="session-row" style="grid-template-columns:1fr auto;background:var(--surface-alt);margin-bottom:4px">
+      <div class="s-name">${g.name}</div>
+      <div style="font-size:12px;color:var(--muted-dark)">${g.quota!=null ? g.quota+' places' : '—'}</div>
+    </div>
+    ${g.sessions.map(s=>`
+      <div class="session-row" style="grid-template-columns:1fr auto;margin-left:18px">
+        <div><div class="s-name" style="font-weight:500">${s.name}</div><div class="s-sub">${icon('mapPin')} ${s.room}${s.time?' · '+s.time:''}</div></div>
+      </div>`).join('')}`).join('') || `<div class="s-sub">Aucune session renseignée.</div>`;
+  if (!m.items.length) return `<div class="s-sub">Aucune session renseignée.</div>`;
+  return m.items.map(s=>`
+    <div class="session-row" style="grid-template-columns:1fr auto">
+      <div><div class="s-name">${s.name}</div><div class="s-sub">${icon('mapPin')} ${s.room}${m.hasTime&&s.time?' · '+s.time:''}</div></div>
+      <div style="font-size:12px;color:var(--muted-dark)">${m.hasQuota ? (s.quota||'illimité')+' places' : 'Informatif'}</div>
+    </div>`).join('');
+}
+
+/* =================== FICHE ÉVÉNEMENT (détail) ===================
+   Ouverte depuis le Tableau de bord, la liste Événements ou le
+   récapitulatif du Calendrier — voir openEvent(). L'événement « configuré »
+   (state.eventInfo.name, celui piloté par le wizard Créer un événement)
+   affiche son programme et ses intervenants réels ; les autres événements
+   de la liste EVENTS n'ont pas encore ces détails saisis et l'affichent en
+   état vide, plutôt que d'inventer des données qui n'existent pas. */
+views.eventdetail = () => {
+  const e = EVENTS.find(x=>x.name===state.detailEventName) || EVENTS[0];
+  const isConfigured = e.name === state.eventInfo.name;
+  const pct = e.cap ? Math.round(e.reg/e.cap*100) : 0;
+  const remaining = Math.max(e.cap-e.reg, 0);
+  const format = e.place==='En ligne' ? 'Distanciel' : 'Physique';
+  const m = isConfigured ? programModel() : null;
+  const sessionCount = isConfigured ? (m.grouped ? m.groups.length : m.items.length) : null;
+  const backRoute = state.detailReturnRoute || 'events';
+
+  return `
+<div class="page">
+  <button class="btn btn-ghost" style="margin-bottom:18px" onclick="go('${backRoute}')">${icon('arrowLeft')} Retour</button>
+
+  <div class="page-head">
+    <div>
+      <div class="cal-recap-tag-row">
+        <span class="tag blue">${e.type}</span>
+        <span class="tag ${e.status[1]}"><span class="stat-dot"></span>${e.status[0]}</span>
+      </div>
+      <div class="page-title" style="margin-top:8px">${e.name}</div>
+      <div class="page-sub">${icon('calendar')} ${e.date} &nbsp;·&nbsp; ${icon('mapPin')} ${e.place}</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      ${isConfigured ? `<button class="btn btn-ghost" onclick="go('checkin')">${icon('scan')} Check-in</button>` : ''}
+      <button class="btn btn-acid" onclick="go('create')">${icon('settings')} Modifier</button>
+    </div>
+  </div>
+
+  <div class="grid kpi-grid" style="margin-bottom:16px">
+    <div class="card kpi dark">
+      <div class="kpi-label"><span class="dot-acid"></span> Inscrits</div>
+      <div class="kpi-num">${e.reg}</div>
+      <div class="kpi-delta flat">sur ${e.cap} places</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-label">Remplissage</div>
+      <div class="kpi-num">${pct}%</div>
+      <div class="bar" style="margin-top:10px"><i style="width:${pct}%"></i></div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-label">Places restantes</div>
+      <div class="kpi-num">${remaining}</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-label">Sessions</div>
+      <div class="kpi-num">${sessionCount ?? '—'}</div>
+    </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns:1.6fr 1fr;gap:16px;align-items:start">
+    <div>
+      <div class="card">
+        <div class="sec-title">Informations</div>
+        <div class="row2">
+          <div><div style="font-size:12px;color:var(--muted-dark)">Format</div><b style="font-size:13.5px">${format}</b></div>
+          <div><div style="font-size:12px;color:var(--muted-dark)">Lieu</div><b style="font-size:13.5px">${e.place}</b></div>
+        </div>
+        ${isConfigured ? `<div style="margin-top:16px">
+          <div style="font-size:12px;color:var(--muted-dark);margin-bottom:5px">Description</div>
+          <div style="font-size:13.5px;line-height:1.5">${state.eventInfo.description}</div>
+        </div>` : ''}
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="sec-title">Programme</div>
+        ${isConfigured ? eventProgrammeHtml(m) : `<div class="s-sub">Le programme n’a pas encore été configuré pour cet événement.</div>`}
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="sec-title">Intervenants</div>
+        ${isConfigured && state.speakers.length ? state.speakers.map(sp=>`
+          <div class="seg-card">
+            <div class="seg-name"><span class="mini-avatar">${sp.name.split(' ').map(x=>x[0]).join('')}</span>
+              <div><div>${sp.name}</div><div style="font-size:12px;color:var(--muted-dark);font-weight:400">${sp.role}</div></div>
+            </div>
+            <span class="tag grey">${sp.session}</span>
+          </div>`).join('') : `<div class="s-sub">Aucun intervenant renseigné.</div>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">Actions rapides</div>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:10px" onclick="go('guests')">${icon('users')} Invités & participants</button>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:10px" onclick="go('reporting')">${icon('chart')} Reporting</button>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="alert('Prototype : duplication à venir')">${icon('send')} Dupliquer l’événement</button>
+    </div>
+  </div>
+</div>`;
+};
 
 /* =================== CALENDRIER =================== */
 const CAL_MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -996,7 +1129,7 @@ function calRecapPanel(){
 
     ${isConfiguredEvent ? `<div class="cal-recap-extra">${icon('users')} ${state.speakers.length} intervenant${state.speakers.length>1?'s':''} confirmé${state.speakers.length>1?'s':''}</div>` : ''}
 
-    <button class="btn btn-ghost" style="margin-top:20px;width:100%;justify-content:center" onclick="alert('Prototype : ouverture de la fiche « ${e.name} »')">Voir la fiche complète</button>
+    <button class="btn btn-ghost" style="margin-top:20px;width:100%;justify-content:center" onclick="openEvent('${e.name.replace(/'/g,"\\'")}','calendar')">Voir la fiche complète</button>
   </div>
 
   <div class="card" style="margin-top:16px">
