@@ -1192,7 +1192,7 @@ const ALL_STEPS = [
   { key:'format',  label:'Format' },
   { key:'info',    label:'Informations' },
   { key:'segment', label:'Segmentation' },
-  { key:'program',         label:'Programme' },
+  { key:'program',         label:'Programme',            hidden:() => !state.hasProgram },
   { key:'quota',           label:'Quota' },
   { key:'waitlist',        label:'Liste d’attente',      hidden:() => !quotaActive() },
   { key:'speakers',        label:'Intervenants' },
@@ -1210,10 +1210,11 @@ function wizardSteps(){
    Programme & sessions — arbre de décision à 4 cas
 
      hasProgram (toggle de l'étape "Informations") :
-                             NON → cas A (une seule session)
-                             OUI → Type ?  (choisi dans l'étape "Programme")
-                                     ODJ informatif        → cas B
-                                     Multi-sessions → Groupe de sessions ?
+                             NON → cas A (pas de programme : l'événement EST la session)
+                             OUI → Type ?  (choisi dans l'étape "Programme", visible
+                                            uniquement quand hasProgram est activé)
+                                     Agenda (vue seule)   → cas B
+                                     Sessions (réservables) → Groupe de sessions ?
                                                           SANS → cas C
                                                           AVEC → cas D
 
@@ -1222,10 +1223,12 @@ function wizardSteps(){
    qu'un type ait encore été choisi, programCase() renvoie null (« en
    attente ») pour ne jamais présumer d'un cas multi-sessions non confirmé.
    Le quota est facultatif en A/B (state.quotaEnabled), obligatoire en C
-   (par session) et D (par parcours). state.sessions et state.parcours
-   restent la source de vérité unique : changer de cas ne supprime jamais
-   les données déjà saisies, seule leur présentation change — voir
-   sessionsEditor()/parcoursEditor().
+   (par session) et D (par parcours). En A, il n'existe pas de "session" à
+   proprement parler : l'événement lui-même (nom/lieu/date saisis dans
+   Informations) en tient lieu — voir programModel(). En B/C/D, state.sessions
+   et state.parcours restent la source de vérité unique : changer de cas ne
+   supprime jamais les données déjà saisies, seule leur présentation change
+   — voir sessionsEditor()/parcoursEditor().
    ============================================================ */
 
 function programCase(){
@@ -1360,18 +1363,6 @@ function sessionRow(s, i, { showParcoursSelect=false } = {}){
     </div>`;
 }
 
-/* cas A : une seule session, ni ajout ni suppression possibles */
-function singleSessionEditor(){
-  if (!state.sessions.length) state.sessions.push({ id:'s'+Date.now(), horaire:'', titre:'Nouvelle session', salle:'À définir', quota:null, parcoursId:null });
-  const s = state.sessions[0];
-  const i = 0;
-  return `
-    <div class="row2" style="margin-top:4px">
-      <div class="field"><label>Nom de la session</label><input class="inp" value="${s.titre}" oninput="state.sessions[${i}].titre=this.value;render()"></div>
-      <div class="field"><label>Salle / lieu</label><input class="inp" value="${s.salle}" oninput="state.sessions[${i}].salle=this.value;render()"></div>
-    </div>`;
-}
-
 /* cas B : agenda multi-lignes, en lecture seule côté invité, sans quota par ligne */
 function agendaEditor(){
   return `
@@ -1424,6 +1415,15 @@ function programModel(){
   const hasTime = true;
   const pickSessions = (c==='C' || c==='D');
 
+  if (c === 'A') {
+    // Pas de programme : l'événement lui-même tient lieu de session unique.
+    return {
+      hasQuota, hasTime, grouped:false, pickSessions:false,
+      items: [{ name: state.eventInfo.name, room: state.eventInfo.lieu, time: state.eventInfo.date, quota:null }],
+      totalQuota: hasQuota ? state.eventCapacity : null,
+    };
+  }
+
   if (c === 'D') {
     const groups = state.parcours.map(p=>({
       name: p.name,
@@ -1438,13 +1438,14 @@ function programModel(){
     };
   }
 
+  // ici, c est forcément 'B' ou 'C' (A et D sont retournés plus haut)
   const items = state.sessions.map(s=>({
     name:s.titre, room:s.salle, time:s.horaire,
     quota: (c==='C' && hasQuota) ? s.quota : null,
   }));
   return {
     hasQuota: hasQuota && c==='C', hasTime, grouped:false, items, pickSessions,
-    totalQuota: (c==='A'||c==='B')
+    totalQuota: (c==='B')
       ? (hasQuota ? state.eventCapacity : null)
       : (hasQuota ? items.reduce((a,s)=>a+(+s.quota||0),0) : null),
   };
@@ -1453,8 +1454,8 @@ function programModel(){
 /* ---------- Intervenants : options de rattachement selon le cas ---------- */
 function attachOptions(){
   const c = programCase();
-  if (c === 'A') return [{ value:'global:*', label:'Programme entier' }, ...state.sessions.map(s=>({ value:'session:'+s.id, label:s.titre }))];
-  if (c === 'B') return [{ value:'global:*', label:'Programme entier' }, ...state.sessions.map(s=>({ value:'session:'+s.id, label:s.titre }))];
+  if (c === 'A') return [{ value:'global:*', label:'Tout l’événement' }]; // pas de programme : rien d'autre à rattacher
+  if (c === 'B') return [{ value:'global:*', label:'Agenda entier' }, ...state.sessions.map(s=>({ value:'session:'+s.id, label:s.titre }))];
   if (c === 'C') return state.sessions.map(s=>({ value:'session:'+s.id, label:s.titre }));
   return [ // cas D : un groupe entier, ou une session précise
     ...state.parcours.map(p=>({ value:'group:'+p.id, label:'Parcours — '+p.name })),
@@ -1462,7 +1463,7 @@ function attachOptions(){
   ];
 }
 function attachLabel(attachType, attachId){
-  if (attachType === 'global') return 'Programme entier';
+  if (attachType === 'global') return programCase()==='A' ? 'Tout l’événement' : 'Agenda entier';
   if (attachType === 'group') return 'Parcours — ' + (state.parcours.find(p=>p.id===attachId)?.name || '?');
   return state.sessions.find(s=>s.id===attachId)?.titre || '?';
 }
@@ -1638,7 +1639,7 @@ const stepBody = {
     <div class="toggle-row" style="margin-top:6px">
       <div>
         <div class="tr-title">Cet événement comporte plusieurs sessions</div>
-        <div class="tr-desc">Active la configuration d’un programme (agenda informatif, ou sessions/parcours auxquels les invités s’inscrivent) à l’étape « Programme ». Désactivé : un seul créneau pour tous les invités.</div>
+        <div class="tr-desc">Ajoute une étape « Programme » pour configurer un agenda (vue seule) ou des sessions que les invités réservent individuellement. Désactivé : un seul créneau pour tous les invités, sans étape supplémentaire.</div>
       </div>
       <label class="switch"><input type="checkbox" ${state.hasProgram?'checked':''} onchange="toggleHasProgram(this.checked)"><span class="slider"></span></label>
     </div>`,
@@ -1649,13 +1650,13 @@ const stepBody = {
         <div class="pub-choice">
           <div class="pub-opt ${state.programType==='odj'?'sel':''}" onclick="state.programType='odj';progSubGo(state.progSubStep+1)">
             <div class="po-icon">${icon('table')}</div>
-            <div class="po-title">Ordre du jour informatif</div>
-            <div class="po-desc">L’invité consulte le programme mais ne réserve pas de créneau — inscription globale à l’événement.</div>
+            <div class="po-title">Agenda</div>
+            <div class="po-desc">Un déroulé consultable par l’invité, qui s’inscrit à l’événement en un clic — sans réserver de créneau précis.</div>
           </div>
           <div class="pub-opt ${state.programType==='multi'?'sel':''}" onclick="state.programType='multi';progSubGo(state.progSubStep+1)">
             <div class="po-icon">${icon('layers')}</div>
-            <div class="po-title">Multi-sessions</div>
-            <div class="po-desc">Des créneaux indépendants auxquels l’invité s’inscrit individuellement.</div>
+            <div class="po-title">Sessions</div>
+            <div class="po-desc">Des créneaux que chaque invité réserve individuellement, un par un.</div>
           </div>
         </div>`,
       'prog-groups': () => `
@@ -1673,7 +1674,7 @@ const stepBody = {
         </div>`,
       'prog-content': () => {
         const c = programCase();
-        if (c==='A') return singleSessionEditor();
+        // c==='A' est impossible ici : cette étape n'est visible que si hasProgram est activé.
         if (c==='B') return agendaEditor();
         if (c==='D') return parcoursEditor();
         return sessionsEditor();
